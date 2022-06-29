@@ -1,0 +1,25 @@
+{
+  "name": "scalr-terraform-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/buzzy/scalr-terraform-cli.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/buzzy/scalr-terraform-cli/issues"
+  },
+  "homepage": "https://github.com/buzzy/scalr-terraform-cli#readme",
+  "dependencies": {
+    "@actions/core": "^1.9.0",
+    "@actions/io": "^1.1.2",
+    "@actions/tool-cache": "^2.0.1",
+    "@hashicorp/js-releases": "^1.6.0"
+  }
+}

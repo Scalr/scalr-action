@@ -1,0 +1,19 @@
+name: 'Scalr Terraform CLI'
+description: 'Installs Terraform CLI and configures it with Scalr.'
+author: 'Scalr'
+inputs:
+  scalr_hostname:
+    description: 'The hostname of a Scalr install. Example: username.scalr.io.'
+    required: true
+  scalr_token:
+    description: 'The API token to use.'
+    required: true
+  terraform_version:
+    description: 'The version of Terraform CLI to install. Should match the version set in your Scalr Workspace.'
+    required: true
+runs:
+  using: 'node16'
+  main: 'dist/terraform/index.js'
+branding:
+  icon: 'terminal'
+  color: 'red'
