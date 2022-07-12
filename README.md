@@ -19,7 +19,7 @@ Subsequent steps can access Terraform outputs.
 
 ```yaml
 steps:
-- uses: buzzy/scalr-terraform-cli@v1
+- uses: Scalr/scalr-action@v1
   with:
     scalr_hostname: 'example.scalr.io'
     scalr_token: ${{ secrets.SCALR_TOKEN }}
