@@ -11,6 +11,9 @@ inputs:
   terraform_version:
     description: 'The version of Terraform CLI to install. Should match the version set in your Scalr Workspace.'
     required: true
+  terraform_output:
+    description: 'Export Terraform output variables as Action output variables.'
+    default: false
 runs:
   using: 'node16'
   main: 'dist/terraform/index.js'

@@ -24,15 +24,21 @@ steps:
     scalr_hostname: 'example.scalr.io'
     scalr_token: ${{ secrets.SCALR_TOKEN }}
     terraform_version: 1.2.0
+    terraform_output: true
 
 - run: terraform init
 
 - id: plan
   run: terraform plan
 
-- run: echo ${{ steps.plan.outputs.stdout }}
-- run: echo ${{ steps.plan.outputs.stderr }}
-- run: echo ${{ steps.plan.outputs.exitcode }}  
+- run: echo "${{ steps.plan.outputs.stdout }}"
+- run: echo "${{ steps.plan.outputs.stderr }}"
+- run: echo "${{ steps.plan.outputs.exitcode }}"
+
+- id: apply
+  run: terraform apply -auto-approve
+
+- run: echo ${{ steps.apply.outputs.server_ip }}
 ```
 
 ## Terraform configuration
@@ -65,6 +71,8 @@ The action supports the following inputs:
 
 - `terraform_version` - The version of Terraform CLI to install. Please use the same version as set in your Scalr Workspace.
 
+- `terraform_output` - true/false. Export Terraform output variables as Action output variables. Example: `steps.<step-name>.outputs.<terraform_output_name>` Default: false
+
 ## Outputs
 
 This action does not configure any outputs directly. However, the following outputs are available for subsequent steps that call the `terraform` binary.
@@ -74,3 +82,5 @@ This action does not configure any outputs directly. However, the following outp
 - `stderr` - The STDERR stream of the call to the `terraform` binary.
 
 - `exitcode` - The exit code of the call to the `terraform` binary.
+
+- `<terraform_output_var_name>` - Stores the Terraform output variables from last `terraform apply` run if terraform_output=true

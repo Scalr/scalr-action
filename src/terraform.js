@@ -15,6 +15,7 @@ const { stdout } = require('process');
     const hostname = core.getInput('scalr_hostname', { required: true })
     const token = core.getInput('scalr_token', { required: true })
     const version = core.getInput('terraform_version', { required: true })
+    const output = core.getInput('terraform_output')
 
     core.info(`Preparing to download Terraform version ${version}`)
     const release = await releases.getRelease('terraform', version);
@@ -50,6 +51,9 @@ const { stdout } = require('process');
     core.info(`Generating Terraform credentials file at ${rc}`)
     await io.mkdirP(path.dirname(rc))
     await fs.writeFile(rc, `credentials \"${hostname}\" {\n  token = \"${token}\"\n}`)
+
+    core.exportVariable('TF_IN_AUTOMATION', 'TRUE');
+    core.exportVariable('TERRAFORM_OUTPUT', output);
 
 } catch(error) {
     core.setFailed(error.message)
