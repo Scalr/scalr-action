@@ -1,0 +1,33 @@
+name: Move tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to move'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+        - test
+        - v1
+      version:
+        description: 'Version'
+        default: 'v0.0.0'
+        required: true 
+        type: string
+
+jobs:
+  release:
+    name: Re-point tag
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Push change to repo
+        run: |
+          git tag --force ${{ inputs.tag }} $(git rev-parse ${{ inputs.version }})
+          git push origin ${{ inputs.tag }} --force
