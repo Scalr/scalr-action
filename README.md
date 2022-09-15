@@ -1,10 +1,10 @@
-# scalr-terraform-cli
+# scalr-action
 
-The `scalr-terraform-cli` action is a JavaScript action that sets up Terraform CLI in your GitHub Actions workflow by:
+The `scalr-action` action is a JavaScript action that sets up Terraform CLI in your GitHub Actions workflow by:
 
 - Downloading (and caching) a specific version of Terraform CLI and adding it to the `PATH`.
 - Configuring the [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and API Token.
-- Installing a wrapper script to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively.
+- Optionally: Installing a wrapper script to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively.
 
 After you've used the action, subsequent steps in the same job can run arbitrary Terraform commands using [the GitHub Actions `run` syntax](https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstepsrun). This allows most Terraform commands to work exactly like they do on your local command line.
 
@@ -15,7 +15,7 @@ This action can be run on `ubuntu-latest`, `windows-latest`, and `macos-latest` 
 Please remember to set the same terraform version as set in your Scalr Workspace. 
 You also need to generate a [Scalr API Token](https://docs.scalr.com/en/latest/migration.html) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
 
-Subsequent steps can access Terraform outputs.
+Subsequent steps can access Terraform outputs, if the optional wrapper is enabled.
 
 ```yaml
 steps:
