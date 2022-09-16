@@ -1,47 +1,9 @@
 name: Test
 
 on:
-  push:
-    branches: [ 'test' ]
-
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build
-    runs-on: 'ubuntu-latest'
-
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.head_ref }}
-
-      - name: Install Node.js 16.15.1
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16.15.1'
-
-      - name: Install dependencies
-        run: npm clean-install
-
-      - name: Install ncc
-        run: npm --location=global install @vercel/ncc
-
-      - name: Generate unified release files with ncc
-        run: |
-          ncc build src/terraform.js -o dist/terraform -m
-          ncc build src/wrapper.js -o dist/wrapper -m
-
-      - name: Push to Github test tag
-        run: |
-          git config --global user.email "github@scalr.com"
-          git config --global user.name "Github Action"
-          git add dist/*
-          git update-index --chmod=+x dist/wrapper/index.js
-          git commit -m "Auto test build" --allow-empty
-          git tag -fa -m "Update test tag" test
-          git push -f --follow-tags
-
   test:
     name: Test
     runs-on: ${{ matrix.os }}
@@ -54,7 +16,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]    
 
     steps:
-      - uses: buzzy/scalr-terraform-cli@test
+      - uses: Scalr/scalr-action@test
         with:
           terraform_version: '1.2.1'
           scalr_token: 'test-token'

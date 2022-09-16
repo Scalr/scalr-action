@@ -1,4 +1,4 @@
-name: Create new release
+name: Build dist files and release
 
 on:
   workflow_dispatch:
@@ -8,17 +8,43 @@ on:
         description: Version for new release
         required: true
         default: 0.0.0
-        
+
 jobs:
-  release:
-    name: Create new release
+  build:
+    name: Build dist files and release
     runs-on: 'ubuntu-latest'
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.15.1'
+
+      - name: Install dependencies
+        run: npm clean-install
+
+      - name: Install ncc
+        run: npm --location=global install @vercel/ncc
+
+      - name: Generate unified release files with ncc
+        run: |
+          ncc build src/terraform.js -o dist/terraform -m
+          ncc build src/wrapper.js -o dist/wrapper -m
+
+      - name: Add dist-files to last commit
+        run: |
+          git config --global user.email "github@scalr.com"
+          git config --global user.name "Github Action"
+          git add dist/*
+          git update-index --chmod=+x dist/wrapper/index.js
+          git commit -m "Auto-build dist files" --allow-empty
+          git push -f
+
       - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create v${{ github.event.inputs.version }} --generate-notes
-

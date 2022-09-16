@@ -19,7 +19,7 @@ on:
 
 jobs:
   release:
-    name: Re-point tag
+    name: Move tag
     runs-on: 'ubuntu-latest'
 
     steps:
@@ -29,5 +29,8 @@ jobs:
 
       - name: Push change to repo
         run: |
-          git tag --force ${{ inputs.tag }} $(git rev-parse ${{ inputs.version }})
-          git push origin ${{ inputs.tag }} --force
+          git config --global user.email "github@scalr.com"
+          git config --global user.name "Github Action"
+          HASH=$(git rev-parse ${{ inputs.version }})
+          git tag -fa -m "Move tag to $HASH" ${{ inputs.tag }} $HASH
+          git push -f origin ${{ inputs.tag }}
