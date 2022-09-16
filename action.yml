@@ -11,6 +11,10 @@ inputs:
   terraform_version:
     description: 'The version of Terraform CLI to install. Should match the version set in your Scalr Workspace.'
     required: true
+  terraform_wrapper:
+    description: 'Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.'
+    default: 'true'
+    required: false
 runs:
   using: 'node16'
   main: 'dist/terraform/index.js'

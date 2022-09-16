@@ -15,6 +15,7 @@ const { stdout } = require('process');
     const hostname = core.getInput('scalr_hostname', { required: true })
     const token = core.getInput('scalr_token', { required: true })
     const version = core.getInput('terraform_version', { required: true })
+    const wrapper = core.getInput('terraform_wrapper') === 'true';
 
     core.info(`Preparing to download Terraform version ${version}`)
     const release = await releases.getRelease('terraform', version);
@@ -34,16 +35,18 @@ const { stdout } = require('process');
     core.info('Add Terraform to PATH')
     core.addPath(cli)
 
-    core.info('Rename Terraform binary to make way for the wrapper')
-    const exeSuffix = os.platform().startsWith('win') ? '.exe' : ''
-    let source = [cli, `terraform${exeSuffix}`].join(path.sep)
-    let target = [cli, `terraform-bin${exeSuffix}`].join(path.sep)
-    await io.mv(source, target)
+    if (wrapper) {
+        core.info('Rename Terraform binary to make way for the wrapper')
+        const exeSuffix = os.platform().startsWith('win') ? '.exe' : ''
+        let source = [cli, `terraform${exeSuffix}`].join(path.sep)
+        let target = [cli, `terraform-bin${exeSuffix}`].join(path.sep)
+        await io.mv(source, target)
 
-    core.info('Install wrapper to forward Terraform output to future actions')
-    source = path.resolve([__dirname, '..', 'wrapper', 'index.js'].join(path.sep));
-    target = [cli, 'terraform'].join(path.sep);
-    await io.cp(source, target);
+        core.info('Install wrapper to forward Terraform output to future actions')
+        source = path.resolve([__dirname, '..', 'wrapper', 'index.js'].join(path.sep));
+        target = [cli, 'terraform'].join(path.sep);
+        await io.cp(source, target);
+    }
 
     let rc = process.env.TF_CLI_CONFIG_FILE
     if (!rc) rc = (platform == 'windows') ? `${process.env.APPDATA}/terraform.rc` : `${process.env.HOME}/.terraformrc`

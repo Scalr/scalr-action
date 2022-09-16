@@ -4,7 +4,7 @@ The `scalr-action` action is a JavaScript action that sets up Terraform CLI in y
 
 - Downloading (and caching) a specific version of Terraform CLI and adding it to the `PATH`.
 - Configuring the [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and API Token.
-- Optionally: Installing a wrapper script to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively.
+- Optionally: Installing a wrapper script to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. This is enabled by default.
 
 After you've used the action, subsequent steps in the same job can run arbitrary Terraform commands using [the GitHub Actions `run` syntax](https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstepsrun). This allows most Terraform commands to work exactly like they do on your local command line.
 
@@ -65,9 +65,11 @@ The action supports the following inputs:
 
 - `terraform_version` - The version of Terraform CLI to install. Please use the same version as set in your Scalr Workspace.
 
+- `terraform_wrapper` - Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.
+
 ## Outputs
 
-This action does not configure any outputs directly. However, the following outputs are available for subsequent steps that call the `terraform` binary.
+This action does not configure any outputs directly. However, the following outputs are available for subsequent steps that call the `terraform` binary, given that terraform_wrapper has not been set to false.
 
 - `stdout` - The STDOUT stream of the call to the `terraform` binary.
 
