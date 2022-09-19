@@ -13,7 +13,20 @@ child.on('exit', function (code, signal) {
     core.setOutput('stderr', stderr)
     core.setOutput('exitcode', code)
 
-    process.exit(code);
+    if (code || !JSON.parse(process.env.TERRAFORM_OUTPUT.toLowerCase()) || (process.argv[2] != 'apply' && process.argv[3] != 'apply')) process.exit(code);
+
+    //Run a terraform output to catch outputs
+    cp.exec('terraform-bin output -json', (error2, stdout2, stderr2) => {
+        if (error2) return;
+        
+        let data = JSON.parse(stdout2)
+
+        for (var prop in data) {
+            core.setOutput(prop, data[prop].value)
+        }
+
+        process.exit(0)
+    });
 });
 
 child.on('error', function () {
