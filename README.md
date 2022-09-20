@@ -5,6 +5,7 @@ The `scalr-action` action is a JavaScript action that sets up Terraform CLI in y
 - Downloading (and caching) a specific version of Terraform CLI and adding it to the `PATH`.
 - Configuring the [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and API Token.
 - Optionally: Installing a wrapper script to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. This is enabled by default.
+- Optionally: [Terraform output variables](https://www.terraform.io/language/values/outputs) will be catched and converted to Action variables. This is disabled by default.
 
 After you've used the action, subsequent steps in the same job can run arbitrary Terraform commands using [the GitHub Actions `run` syntax](https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstepsrun). This allows most Terraform commands to work exactly like they do on your local command line.
 
@@ -24,15 +25,21 @@ steps:
     scalr_hostname: 'example.scalr.io'
     scalr_token: ${{ secrets.SCALR_TOKEN }}
     terraform_version: 1.2.0
+    terraform_output: true
 
 - run: terraform init
 
 - id: plan
   run: terraform plan
 
-- run: echo ${{ steps.plan.outputs.stdout }}
-- run: echo ${{ steps.plan.outputs.stderr }}
-- run: echo ${{ steps.plan.outputs.exitcode }}  
+- run: echo "${{ steps.plan.outputs.stdout }}"
+- run: echo "${{ steps.plan.outputs.stderr }}"
+- run: echo "${{ steps.plan.outputs.exitcode }}"
+
+- id: apply
+  run: terraform apply -auto-approve
+
+- run: echo ${{ steps.apply.outputs.server_ip }}
 ```
 
 ## Terraform configuration
@@ -65,7 +72,9 @@ The action supports the following inputs:
 
 - `terraform_version` - The version of Terraform CLI to install. Please use the same version as set in your Scalr Workspace.
 
-- `terraform_wrapper` - Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.
+- `terraform_wrapper` - Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. This is enabled by default.
+
+- `terraform_output` - true/false. Export Terraform output variables as Action output variables. The Terraform wrapper needs to be enabled for this to work. Example: `steps.<step-name>.outputs.<terraform_output_name>` This is disabled by default.
 
 ## Outputs
 
@@ -76,3 +85,5 @@ This action does not configure any outputs directly. However, the following outp
 - `stderr` - The STDERR stream of the call to the `terraform` binary.
 
 - `exitcode` - The exit code of the call to the `terraform` binary.
+
+- `<terraform_output_var_name>` - Stores the Terraform output variables from last `terraform apply` run if terraform_output=true

@@ -15,6 +15,10 @@ inputs:
     description: 'Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.'
     default: 'true'
     required: false
+  terraform_output:
+    description: 'Export Terraform output variables as Action output variables.'
+    default: false
+    required: false
 runs:
   using: 'node16'
   main: 'dist/terraform/index.js'
