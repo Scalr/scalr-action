@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
+const axios = require('axios');
 
 const core = require('@actions/core')
 const toolcache = require('@actions/tool-cache')
@@ -18,10 +19,27 @@ const { stdout } = require('process');
     const wrapper = core.getInput('terraform_wrapper') === 'true';
     const output = core.getInput('terraform_output')
 
-    core.info(`Preparing to download Terraform version ${version}`)
-    const release = await releases.getRelease('terraform', version);
     const platform = {'win32':'windows'}[os.platform()] || os.platform()
     const arch = {'x32':'386', 'x64':'amd64'}[os.arch()] || os.arch()
+
+    core.info('Fetch latest version of Scalr CLI')
+    let latest = await axios.get('https://api.github.com/repos/Scalr/scalr-cli/releases/latest');
+    let ver = latest.data.tag_name.replace('v', '')
+    let url = `https://github.com/Scalr/scalr-cli/releases/download/v${ver}/scalr-cli_${ver}_${platform}_${arch}.zip`
+
+    core.info(`Downloading compressed Scalr CLI binary from ${url}`)
+    const zip2 = await toolcache.downloadTool(url)
+    if (!zip2) throw new Error('Failed to download Scalr CLI')
+
+    core.info('Decompressing Scalr CLI binary')
+    const cli2 = await toolcache.extractZip(zip2);
+    if (!cli2) throw new Error('Failed to decompress Scalr CLI')
+
+    core.info('Add Scalr CLI to PATH')
+    core.addPath(cli2)
+
+    core.info(`Preparing to download Terraform version ${version}`)
+    const release = await releases.getRelease('terraform', version);
     const build = release.getBuild(platform, arch);
     if (!build) throw new Error('No matching version found');
 
