@@ -4,6 +4,7 @@ const path = require('path');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
+const spawn = require('await-spawn')
 
 const core = require('@actions/core')
 const toolcache = require('@actions/tool-cache')
@@ -15,7 +16,8 @@ const { stdout } = require('process');
 
     const hostname = core.getInput('scalr_hostname', { required: true })
     const token = core.getInput('scalr_token', { required: true })
-    const version = core.getInput('terraform_version', { required: true })
+    const workspace = core.getInput('scalr_workspace')
+    let version = core.getInput('terraform_version')
     const wrapper = core.getInput('terraform_wrapper') === 'true';
     const output = core.getInput('terraform_output')
 
@@ -37,6 +39,29 @@ const { stdout } = require('process');
 
     core.info('Add Scalr CLI to PATH')
     core.addPath(cli2)
+
+    let conf = `${process.env.HOME}/.scalr/scalr.conf`
+    core.info(`Generating Scalr CLI credentials file at ${conf}`)
+    await io.mkdirP(path.dirname(conf))
+    await fs.writeFile(conf, `{ \"hostname\": \"${hostname}\", \"token\": \"${token}\" }`)
+
+    if (!version) {
+        core.info('No Terraform version specified. Will try to autodetect using Scalr CLI.')
+        if (!workspace) throw new Error('Please specify workspace to autodetect Terraform version')
+
+        let data
+        try {
+            core.info(`Fetching Terraform version for workspace ${workspace}`)
+            data = await spawn('scalr', ['get-workspace', '-workspace='+workspace])
+            
+            data = JSON.parse(data.toString())
+
+            version = data['terraform-version']
+
+        } catch (e) {
+            throw new Error('Unable to find specified workspace')
+        }
+    }
 
     core.info(`Preparing to download Terraform version ${version}`)
     const release = await releases.getRelease('terraform', version);
