@@ -3,7 +3,7 @@
 The `scalr-action` action is a JavaScript action that sets up Scalr CLI and Terraform CLI in your GitHub Actions workflow by:
 
 - Downloading (and caching) the latest version of Scalr CLI and adding it to the `PATH`.
-- Downloading (and caching) a specific version of Terraform CLI and adding it to the `PATH`.
+- Downloading (and caching) a specific (or autodetected) version of Terraform CLI and adding it to the `PATH`.
 - Configuring the Scalr CLI and [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and API Token.
 - Optionally: Installing a wrapper script to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. This is enabled by default.
 - Optionally: [Terraform output variables](https://www.terraform.io/language/values/outputs) will be catched and converted to Action variables. This is disabled by default.
@@ -16,7 +16,7 @@ You will also have access to the Scalr CLI which communicates directly with the 
 
 This action can be run on `ubuntu-latest`, `windows-latest`, and `macos-latest` GitHub Actions runners. When running on `windows-latest` the shell should be set to Bash.
 
-Please remember to set the same terraform version as set in your Scalr Workspace. 
+If manually specifying a Terraform version, please remember to set the same version as set in your Scalr Workspace. 
 You also need to generate a [Scalr API Token](https://docs.scalr.com/en/latest/migration.html) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
 
 Subsequent steps can access Terraform outputs, if the optional wrapper is enabled.
@@ -27,7 +27,7 @@ steps:
   with:
     scalr_hostname: 'example.scalr.io'
     scalr_token: ${{ secrets.SCALR_TOKEN }}
-    terraform_version: 1.2.0
+    scalr_workspace: ws-u7f66t3oldrj4r2
     terraform_output: true
 
 - run: terraform init
@@ -73,7 +73,10 @@ The action supports the following inputs:
 - `scalr_token` - The API token for a Scalr instance to
    place within the credentials block of the Terraform CLI configuration file.
 
-- `terraform_version` - The version of Terraform CLI to install. Please use the same version as set in your Scalr Workspace.
+- `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to autodetect Terraform version.
+
+- `terraform_version` - The version of Terraform CLI to install. Should match the version set in your Scalr Workspace. 
+   Will be autodetected if left empty and workspace is set.
 
 - `terraform_wrapper` - Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. This is enabled by default.
 

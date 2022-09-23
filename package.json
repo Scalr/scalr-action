@@ -20,6 +20,7 @@
     "@actions/core": "^1.9.0",
     "@actions/io": "^1.1.2",
     "@actions/tool-cache": "^2.0.1",
-    "@hashicorp/js-releases": "^1.6.0"
+    "@hashicorp/js-releases": "^1.6.0",
+    "await-spawn": "^4.0.2"
   }
 }
