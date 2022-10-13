@@ -1,33 +1,36 @@
 # scalr-action
 
-The `scalr-action` action is a JavaScript action that sets up Scalr CLI and Terraform CLI in your GitHub Actions workflow by:
+The `scalr-action` action is an action written in JavaScript that sets up the Scalr and Terraform CLI. The action does the following:
 
-- Downloading (and caching) the latest version of Scalr CLI and adding it to the `PATH`.
-- Downloading (and caching) a specific (or autodetected) version of Terraform CLI and adding it to the `PATH`.
-- Configuring the Scalr CLI and [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and API Token.
-- Optionally: Installing a wrapper script to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. This is enabled by default.
-- Optionally: [Terraform output variables](https://www.terraform.io/language/values/outputs) will be catched and converted to Action variables. This is disabled by default.
+- Downloads (and caching) the latest version of [Scalr CLI](https://github.com/Scalr/scalr-cli) and adds it to the `PATH`.
+- Dowloads (and caching) a specific (or autodetected) version of Terraform CLI and adds it to the `PATH`.
+- Configures the Scalr CLI and [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and Token.
+- Optionally: Installs a script to wrap following calls of the `terraform` binary. Exposes the STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode`. Enabled by default
+- Optionally: [Terraform output variables](https://www.terraform.io/language/values/outputs) will be cached and converted to action variables. This is disabled by default.
 
-After you've used the action, subsequent steps in the same job can run arbitrary Terraform commands using [the GitHub Actions `run` syntax](https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstepsrun). This allows most Terraform commands to work exactly like they do on your local command line.
+After the action has been used, the following steps in the job can run the standard Terraform commands using [the GitHub Actions `run` command](https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstepsrun).
 
-You will also have access to the Scalr CLI which communicates directly with the Scalr API and allows you to perform Scalr specific tasks, such as creating users, pull statistics etc.
+You will also have access to the Scalr CLI which communicates directly with the Scalr API and allows you to perform Scalr specific tasks, such as creating users, pull statistics, etc.
 
 ## Usage
 
-This action can be run on `ubuntu-latest`, `windows-latest`, and `macos-latest` GitHub Actions runners. When running on `windows-latest` the shell should be set to Bash.
+Supported on the following GitHub Actions runners\:
+* `ubuntu-latest`
+* `windows-latest` (be sure to set the shell to Bash)
+* `macos-latest` 
 
 If manually specifying a Terraform version, please remember to set the same version as set in your Scalr Workspace. 
 You also need to generate a [Scalr API Token](https://docs.scalr.com/en/latest/migration.html) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
 
-Subsequent steps can access Terraform outputs, if the optional wrapper is enabled.
+The following steps can access Terraform outputs if the optional wrapper is enabled.
 
 ```yaml
 steps:
 - uses: Scalr/scalr-action@v1
   with:
-    scalr_hostname: 'example.scalr.io'
+    scalr_hostname: '<your-account>.scalr.io'
     scalr_token: ${{ secrets.SCALR_TOKEN }}
-    scalr_workspace: ws-u7f66t3oldrj4r2
+    scalr_workspace: ws-abcdef123456
     terraform_output: true
 
 - run: terraform init
@@ -54,7 +57,7 @@ Here is an example for a minimal `main.tf`:
 terraform {
   backend "remote" {
     hostname = "example.scalr.io"
-    organization = "env-tq8cgtfobaj07u8"
+    organization = "env-abcdef123456"
 
     workspaces {
       name = "helloworld"
@@ -67,28 +70,25 @@ terraform {
 
 The action supports the following inputs:
 
-- `scalr_hostname` - The hostname of a Scalr instance to 
-   place within the credentials block of the Terraform CLI configuration file. Example: `example.scalr.io`.
+- `scalr_hostname` - The hostname of your Scalr account on scalr.io. Example: `example.scalr.io`.
 
-- `scalr_token` - The API token for a Scalr instance to
-   place within the credentials block of the Terraform CLI configuration file.
+- `scalr_token` - The API token used to authenticate within the the credentials block of the Terraform CLI config file.
 
 - `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to autodetect Terraform version.
 
-- `terraform_version` - The version of Terraform CLI to install. Should match the version set in your Scalr Workspace. 
-   Will be autodetected if left empty and workspace is set.
+- `terraform_version` - The version of Terraform CLI. This must match the version set in your Scalr Workspace. It will be autodetected if left empty and workspace is set.
 
-- `terraform_wrapper` - Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. This is enabled by default.
+- `terraform_wrapper` - Whether or not to install a wrapper to wrap following calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code
 
 - `terraform_output` - true/false. Export Terraform output variables as Action output variables. The Terraform wrapper needs to be enabled for this to work. Example: `steps.<step-name>.outputs.<terraform_output_name>` This is disabled by default.
 
 ## Outputs
 
-This action does not configure any outputs directly. However, the following outputs are available for subsequent steps that call the `terraform` binary, given that terraform_wrapper has not been set to false.
+This action does not set any outputs by default. However, the following outputs are available for further steps that call the `terraform` binary if the wrapper has not been set to false.
 
-- `stdout` - The STDOUT stream of the call to the `terraform` binary.
+- `stdout` - The STDOUT of the call to the `terraform` binary.
 
-- `stderr` - The STDERR stream of the call to the `terraform` binary.
+- `stderr` - The STDERR of the call to the `terraform` binary.
 
 - `exitcode` - The exit code of the call to the `terraform` binary.
 
