@@ -1,5 +1,5 @@
-name: 'Scalr Terraform CLI'
-description: 'Installs Terraform CLI and configures it with Scalr.'
+name: 'Scalr Github Action'
+description: 'Installs Scalr and Terraform CLI and configures them for Scalr use.'
 author: 'Scalr'
 inputs:
   scalr_hostname:
