@@ -25,8 +25,8 @@ const { stdout } = require('process');
     const arch = {'x32':'386', 'x64':'amd64'}[os.arch()] || os.arch()
 
     core.info('Fetch latest version of Scalr CLI')
-    let latest = await axios.get('https://api.github.com/repos/Scalr/scalr-cli/releases/latest');
-    let ver = latest.data.tag_name.replace('v', '')
+    let latest = await axios.head('https://github.com/scalr/scalr-cli/releases/latest')    
+    let ver = new URL(latest.request.res.responseUrl).pathname.split('/').pop().replace('v', '');
     let url = `https://github.com/Scalr/scalr-cli/releases/download/v${ver}/scalr-cli_${ver}_${platform}_${arch}.zip`
 
     core.info(`Downloading compressed Scalr CLI binary from ${url}`)
