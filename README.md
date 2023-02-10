@@ -20,9 +20,9 @@ Supported on the following GitHub Actions runners\:
 * `macos-latest` 
 
 If manually specifying a Terraform version, please remember to set the same version as set in your Scalr Workspace. 
-You also need to generate a [Scalr API Token](https://docs.scalr.com/en/latest/migration.html) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
+You also need to generate a [Scalr API Token](https://docs.scalr.io/docs/creating-a-workspace-1#cli--workspace) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
 
-The following steps can access Terraform outputs if the optional wrapper is enabled.
+The following steps can access Terraform outputs:
 
 ```yaml
 steps:
@@ -72,19 +72,19 @@ The action supports the following inputs:
 
 - `scalr_hostname` - The hostname of your Scalr account on scalr.io. Example: `example.scalr.io`.
 
-- `scalr_token` - The API token used to authenticate within the the credentials block of the Terraform CLI config file.
+- `scalr_token` - The API token used to authenticate with the credentials block of the Terraform CLI config file.
 
-- `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to autodetect Terraform version.
+- `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to auto-detect Terraform version.
 
 - `terraform_version` - The version of Terraform CLI. This must match the version set in your Scalr Workspace. It will be autodetected if left empty and workspace is set.
 
-- `terraform_wrapper` - Whether or not to install a wrapper to wrap following calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code
+- `terraform_wrapper` - Whether or not to install a wrapper to wrap calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code
 
 - `terraform_output` - true/false. Export Terraform output variables as Action output variables. The Terraform wrapper needs to be enabled for this to work. Example: `steps.<step-name>.outputs.<terraform_output_name>` This is disabled by default.
 
 ## Outputs
 
-This action does not set any outputs by default. However, the following outputs are available for further steps that call the `terraform` binary if the wrapper has not been set to false.
+The following outputs are available for further steps that call the `terraform` binary if the wrapper has not been set to false.
 
 - `stdout` - The STDOUT of the call to the `terraform` binary.
 
@@ -97,3 +97,7 @@ This action does not set any outputs by default. However, the following outputs 
 ## Scalr CLI
 
 More information about how to use the Scalr CLI provided by this Action, please refer to the [Scalr CLI repository](https://github.com/Scalr/scalr-cli).
+
+## Contributing
+
+To contribute to this project, please see the [contribution guidelines](https://github.com/Scalr/scalr-action/blob/master/CONTRIBUTING.md). Also please fill out the [Contribution Agreement](https://github.com/Scalr/scalr-action/blob/master/Contribution_Agreement.md) and send it to support@scalr.com
