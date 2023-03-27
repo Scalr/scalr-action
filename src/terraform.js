@@ -25,12 +25,13 @@ const { stdout } = require('process');
     const platform = {'win32':'windows'}[os.platform()] || os.platform()
     const arch = {'x32':'386', 'x64':'amd64'}[os.arch()] || os.arch()
 
-    if (!cli_versoin) {
+    if (!cli_version) {
         core.info('Fetch latest version of Scalr CLI')
         let latest = await axios.head('https://github.com/scalr/scalr-cli/releases/latest')    
-        cli_versoin = new URL(latest.request.res.responseUrl).pathname.split('/').pop().replace('v', '');
+        cli_version = new URL(latest.request.res.responseUrl).pathname.split('/').pop();
     }
-    let url = `https://github.com/Scalr/scalr-cli/releases/download/v${cli_versoin}/scalr-cli_${cli_versoin}_${platform}_${arch}.zip`
+    cli_version = cli_version.replace('v', '');
+    let url = `https://github.com/Scalr/scalr-cli/releases/download/v${cli_version}/scalr-cli_${cli_version}_${platform}_${arch}.zip`
 
     core.info(`Downloading compressed Scalr CLI binary from ${url}`)
     const zip2 = await toolcache.downloadTool(url)
