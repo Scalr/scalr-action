@@ -2,7 +2,7 @@
 
 The `scalr-action` action is an action written in JavaScript that sets up the Scalr and Terraform CLI. The action does the following:
 
-- Downloads (and caching) the latest version of [Scalr CLI](https://github.com/Scalr/scalr-cli) and adds it to the `PATH`.
+- Downloads (and caching) a specific (or latest) version of [Scalr CLI](https://github.com/Scalr/scalr-cli) and adds it to the `PATH`.
 - Dowloads (and caching) a specific (or autodetected) version of Terraform CLI and adds it to the `PATH`.
 - Configures the Scalr CLI and [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and Token.
 - Optionally: Installs a script to wrap following calls of the `terraform` binary. Exposes the STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode`. Enabled by default
@@ -75,6 +75,8 @@ The action supports the following inputs:
 - `scalr_token` - The API token used to authenticate with the credentials block of the Terraform CLI config file.
 
 - `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to auto-detect Terraform version.
+
+- `scalr_cli_version` - The version of Scalr CLI. The latest version will be used if this is not specified.
 
 - `terraform_version` - The version of Terraform CLI. This must match the version set in your Scalr Workspace. It will be autodetected if left empty and workspace is set.
 
