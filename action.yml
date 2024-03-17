@@ -12,18 +12,18 @@ inputs:
     description: "The Scalr workspace ID you plan on working in. This is required if you want to autodetect Terraform version."
     required: false
   iac_platform:
-    description: "Specifies if you want to use the OpenTufu or Terraform platform."
+    description: "Specifies if you want to use the tofu or terraform platform."
     default: "terraform"
     required: false
   binary_version:
     description: "The version of OpenTufu(Terraform CLI to install. Should match the version set in your Scalr Workspace. Will be autodetected if left empty and workspace is set."
     required: false
   binary_wrapper:
-    description: "Whether or not to install a wrapper to wrap subsequent calls of the `opentufu/terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`."
+    description: "Whether or not to install a wrapper to wrap subsequent calls of the `tofu/terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`."
     default: "true"
     required: false
   binary_output:
-    description: "Export OpenTufu/Terraform output variables as Action output variables."
+    description: "Export OpenTofu/Terraform output variables as Action output variables."
     default: "false"
     required: false
   terraform_version:

@@ -19,7 +19,7 @@ const { stdout } = require("process");
     const workspace = core.getInput("scalr_workspace");
 
     let iac_platform = core.getInput("iac_platform") || "terraform";
-    if (iac_platform !== "tufu") tool = "terraform";
+    if (iac_platform !== "tofu") tool = "terraform";
 
     let version =
       core.getInput("binary_version") || core.getInput("terraform_version");
@@ -63,17 +63,17 @@ const { stdout } = require("process");
 
     if (!version) {
       core.info(
-        "No OpenTufu/Terraform version specified. Will try to autodetect using Scalr CLI."
+        "No OpenTofu/Terraform version specified. Will try to autodetect using Scalr CLI."
       );
       if (!workspace)
         throw new Error(
-          "Please specify workspace to autodetect OpenTufu/Terraform version"
+          "Please specify workspace to autodetect OpenTofu/Terraform version"
         );
 
       let data;
       try {
         core.info(
-          `Fetching OpenTufu/Terraform version for workspace ${workspace}`
+          `Fetching OpenTofu/Terraform version for workspace ${workspace}`
         );
         data = await spawn("scalr", [
           "get-workspace",
@@ -97,32 +97,32 @@ const { stdout } = require("process");
       if (!build) throw new Error("No matching version found");
       download_url = build.url;
     } else {
-      core.info(`Preparing to download OpenTufu version ${version}`);
+      core.info(`Preparing to download OpenTofu version ${version}`);
       download_url = `https://github.com/opentofu/opentofu/releases/download/v${version}/tofu_${version}_${platform}_${arch}.zip`;
     }
 
     core.info(
-      `Downloading compressed OpenTufu/Terraform binary from ${download_url}`
+      `Downloading compressed tofu/terraform binary from ${download_url}`
     );
     const zip = await toolcache.downloadTool(download_url);
-    if (!zip) throw new Error("Failed to download OpenTufu/Terraform");
+    if (!zip) throw new Error("Failed to download tofu/terraform");
 
     core.info("Decompressing OpenTufu/Terraform binary");
     const cli = await toolcache.extractZip(zip);
-    if (!cli) throw new Error("Failed to decompress OpenTufu/Terraform");
+    if (!cli) throw new Error("Failed to decompress tofu/terraform");
 
-    core.info("Add OpenTufu/Terraform to PATH");
+    core.info("Add toofu/terraform to PATH");
     core.addPath(cli);
 
     if (wrapper) {
-      core.info("Rename OpenTufu/Terraform binary to make way for the wrapper");
+      core.info("Rename tofu/terraform binary to make way for the wrapper");
       const exeSuffix = os.platform().startsWith("win") ? ".exe" : "";
       let source = [cli, `${iac_platform}${exeSuffix}`].join(path.sep);
       let target = [cli, `terraform-bin${exeSuffix}`].join(path.sep);
       await io.mv(source, target);
 
       core.info(
-        "Install wrapper to forward OpenTufu/Terraform output to future actions"
+        "Install wrapper to forward OpenTofu/Terraform output to future actions"
       );
       source = path.resolve(
         [__dirname, "..", "wrapper", "index.js"].join(path.sep)
@@ -137,7 +137,7 @@ const { stdout } = require("process");
         platform == "windows"
           ? `${process.env.APPDATA}/${iac_platform}.rc`
           : `${process.env.HOME}/.${iac_platform}rc`;
-    core.info(`Generating OpenTufu/Terraform credentials file at ${rc}`);
+    core.info(`Generating OpenTofu/Terraform credentials file at ${rc}`);
     await io.mkdirP(path.dirname(rc));
     await fs.writeFile(
       rc,
