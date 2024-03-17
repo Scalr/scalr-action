@@ -1,56 +1,57 @@
 # scalr-action
 
-The `scalr-action` action is an action written in JavaScript that sets up the Scalr and Terraform CLI. The action does the following:
+The `scalr-action` action is an action written in JavaScript that sets up the Scalr and OpenTufu/Terraform CLI. The action does the following:
 
 - Downloads (and caching) the latest version of [Scalr CLI](https://github.com/Scalr/scalr-cli) and adds it to the `PATH`.
-- Dowloads (and caching) a specific (or autodetected) version of Terraform CLI and adds it to the `PATH`.
+- Dowloads (and caching) a specific (or autodetected) version of OpenTufu/Terraform CLI and adds it to the `PATH`.
 - Configures the Scalr CLI and [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and Token.
-- Optionally: Installs a script to wrap following calls of the `terraform` binary. Exposes the STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode`. Enabled by default
+- Optionally: Installs a script to wrap following calls of the `opentufu/terraform` binary. Exposes the STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode`. Enabled by default
 - Optionally: [Terraform output variables](https://www.terraform.io/language/values/outputs) will be cached and converted to action variables. This is disabled by default.
 
-After the action has been used, the following steps in the job can run the standard Terraform commands using [the GitHub Actions `run` command](https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstepsrun).
+After the action has been used, the following steps in the job can run the standard OpenTufu/Terraform commands using [the GitHub Actions `run` command](https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstepsrun).
 
 You will also have access to the Scalr CLI which communicates directly with the Scalr API and allows you to perform Scalr specific tasks, such as creating users, pull statistics, etc.
 
 ## Usage
 
 Supported on the following GitHub Actions runners\:
-* `ubuntu-latest`
-* `windows-latest` (be sure to set the shell to Bash)
-* `macos-latest` 
 
-If manually specifying a Terraform version, please remember to set the same version as set in your Scalr Workspace. 
+- `ubuntu-latest`
+- `windows-latest` (be sure to set the shell to Bash)
+- `macos-latest`
+
+If manually specifying a OpenTufu/Terraform version, please remember to set the same version as set in your Scalr Workspace.
 You also need to generate a [Scalr API Token](https://docs.scalr.io/docs/creating-a-workspace-1#cli--workspace) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
 
-The following steps can access Terraform outputs:
+The following steps can access OpenTufu/Terraform outputs:
 
 ```yaml
 steps:
-- uses: Scalr/scalr-action@v1
-  with:
-    scalr_hostname: '<your-account>.scalr.io'
-    scalr_token: ${{ secrets.SCALR_TOKEN }}
-    scalr_workspace: ws-abcdef123456
-    terraform_output: true
+  - uses: Scalr/scalr-action@v1
+    with:
+      scalr_hostname: "<your-account>.scalr.io"
+      scalr_token: ${{ secrets.SCALR_TOKEN }}
+      scalr_workspace: ws-abcdef123456
+      binary_output: true
 
-- run: terraform init
+  - run: opentufu init
 
-- id: plan
-  run: terraform plan
+  - id: plan
+    run: opentufu plan
 
-- run: echo "${{ steps.plan.outputs.stdout }}"
-- run: echo "${{ steps.plan.outputs.stderr }}"
-- run: echo "${{ steps.plan.outputs.exitcode }}"
+  - run: echo "${{ steps.plan.outputs.stdout }}"
+  - run: echo "${{ steps.plan.outputs.stderr }}"
+  - run: echo "${{ steps.plan.outputs.exitcode }}"
 
-- id: apply
-  run: terraform apply -auto-approve
+  - id: apply
+    run: opentufu apply -auto-approve
 
-- run: echo ${{ steps.apply.outputs.server_ip }}
+  - run: echo ${{ steps.apply.outputs.server_ip }}
 ```
 
-## Terraform configuration
+## OpenTufu/Terraform configuration
 
-Make sure your Terraform configuration includes the minimal parameters for Scalr. 
+Make sure your OpenTufu/Terraform configuration includes the minimal parameters for Scalr.
 Here is an example for a minimal `main.tf`:
 
 ```
@@ -76,23 +77,25 @@ The action supports the following inputs:
 
 - `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to auto-detect Terraform version.
 
-- `terraform_version` - The version of Terraform CLI. This must match the version set in your Scalr Workspace. It will be autodetected if left empty and workspace is set.
+- `iac_platform` - Specifies if you want to use the OpenTufu or Terraform platform. Default is `terraform`.
 
-- `terraform_wrapper` - Whether or not to install a wrapper to wrap calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code
+- `binary_version` - The version of OpenTufu/Terraform CLI. This must match the version set in your Scalr Workspace. It will be autodetected if left empty and workspace is set.
 
-- `terraform_output` - true/false. Export Terraform output variables as Action output variables. The Terraform wrapper needs to be enabled for this to work. Example: `steps.<step-name>.outputs.<terraform_output_name>` This is disabled by default.
+- `binary_wrapper` - Whether or not to install a wrapper to wrap calls of the `opentufu/terraform` binary and expose its STDOUT, STDERR, and exit code
+
+- `binary_output` - true/false. Export OpenTufu/Terraform output variables as Action output variables. The OpenTufu/Terraform wrapper needs to be enabled for this to work. Example: `steps.<step-name>.outputs.<terraform_output_name>` This is disabled by default.
 
 ## Outputs
 
-The following outputs are available for further steps that call the `terraform` binary if the wrapper has not been set to false.
+The following outputs are available for further steps that call the `opentufu/terraform` binary if the wrapper has not been set to false.
 
-- `stdout` - The STDOUT of the call to the `terraform` binary.
+- `stdout` - The STDOUT of the call to the `opentufu/terraform` binary.
 
-- `stderr` - The STDERR of the call to the `terraform` binary.
+- `stderr` - The STDERR of the call to the `opentufu/terraform` binary.
 
-- `exitcode` - The exit code of the call to the `terraform` binary.
+- `exitcode` - The exit code of the call to the `opentufu/terraform` binary.
 
-- `<terraform_output_var_name>` - Stores the Terraform output variables from last `terraform apply` run if terraform_output=true
+- `<terraform_output_var_name>` - Stores the Terraform output variables from last `opentufu/terraform apply` run if binary_output=true
 
 ## Scalr CLI
 
