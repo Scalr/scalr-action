@@ -19,7 +19,7 @@ const { stdout } = require("process");
     const workspace = core.getInput("scalr_workspace");
 
     let iac_platform = core.getInput("iac_platform") || "terraform";
-    if (iac_platform !== "opentufu") tool = "terraform";
+    if (iac_platform !== "tufu") tool = "terraform";
 
     let version =
       core.getInput("binary_version") || core.getInput("terraform_version");
