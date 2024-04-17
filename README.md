@@ -27,6 +27,7 @@ The following steps can access OpenTufu/Terraform outputs:
 
 ```yaml
 steps:
+  - uses: actions/checkout@v4
   - uses: Scalr/scalr-action@v1
     with:
       scalr_hostname: "<your-account>.scalr.io"
