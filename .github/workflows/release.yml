@@ -12,8 +12,7 @@ on:
 jobs:
   build:
     name: Build dist files and release
-    runs-on: 'ubuntu-latest'
-
+    runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v3
         with:
@@ -21,7 +20,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16.15.1'
+          node-version: "20.11.1"
 
       - name: Install dependencies
         run: npm clean-install

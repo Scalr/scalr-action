@@ -1,30 +1,46 @@
-name: 'Scalr Github Action'
-description: 'Installs Scalr and Terraform CLI and configures them for Scalr use.'
-author: 'Scalr'
+name: "Scalr Github Action"
+description: "Installs Scalr and Terraform CLI and configures them for Scalr use."
+author: "Scalr"
 inputs:
   scalr_hostname:
-    description: 'The hostname of a Scalr install. Example: username.scalr.io.'
+    description: "The hostname of a Scalr install. Example: username.scalr.io."
     required: true
   scalr_token:
-    description: 'The API token to use.'
+    description: "The API token to use."
     required: true
   scalr_workspace:
-    description: 'The Scalr workspace ID you plan on working in. This is required if you want to autodetect Terraform version.'
+    description: "The Scalr workspace ID you plan on working in. This is required if you want to autodetect Terraform version."
+    required: false
+  iac_platform:
+    description: "Specifies if you want to use the tofu or terraform platform."
+    default: "terraform"
+    required: false
+  binary_version:
+    description: "The version of OpenTufu(Terraform CLI to install. Should match the version set in your Scalr Workspace. Will be autodetected if left empty and workspace is set."
+    required: false
+  binary_wrapper:
+    description: "Whether or not to install a wrapper to wrap subsequent calls of the `tofu/terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`."
+    default: "true"
+    required: false
+  binary_output:
+    description: "Export OpenTofu/Terraform output variables as Action output variables."
+    default: "false"
     required: false
   terraform_version:
-    description: 'The version of Terraform CLI to install. Should match the version set in your Scalr Workspace. Will be autodetected if left empty and workspace is set.'
+    description: "Deprecated. Use `binary_version` instead."
     required: false
   terraform_wrapper:
-    description: 'Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.'
-    default: 'true'
+    description: "Deprecated. User `binary_wrapper` instead."
+    default: "true"
     required: false
   terraform_output:
-    description: 'Export Terraform output variables as Action output variables.'
-    default: false
+    description: "Deprecated. Use `binary_output` instead."
+    default: "false"
     required: false
+
 runs:
-  using: 'node16'
-  main: 'dist/terraform/index.js'
+  using: "node20"
+  main: "dist/terraform/index.js"
 branding:
-  icon: 'terminal'
-  color: 'red'
+  icon: "terminal"
+  color: "red"
