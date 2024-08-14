@@ -3,7 +3,7 @@
 The `scalr-action` action is an action written in JavaScript that sets up the Scalr and OpenTofu/Terraform CLI. The action does the following:
 
 - Downloads (and caching) the latest version of [Scalr CLI](https://github.com/Scalr/scalr-cli) and adds it to the `PATH`.
-- Dowloads (and caching) a specific (or autodetected) version of OpenTofu/Terraform CLI and adds it to the `PATH`.
+- Downloads (and caching) a specific (or autodetected) version of OpenTofu/Terraform CLI and adds it to the `PATH`.
 - Configures the Scalr CLI and [Terraform CLI configuration file](https://www.terraform.io/docs/commands/cli-config.html) with a Scalr Hostname and Token.
 - Optionally: Installs a script to wrap following calls of the `tofu/terraform` binary. Exposes the STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode`. Enabled by default
 - Optionally: [Terraform output variables](https://www.terraform.io/language/values/outputs) will be cached and converted to action variables. This is disabled by default.
