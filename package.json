@@ -1,6 +1,6 @@
 {
-  "name": "scalr-terraform-cli",
-  "version": "1.0.0",
+  "name": "scalr-action",
+  "version": "1.5.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,19 +8,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/buzzy/scalr-terraform-cli.git"
+    "url": "git+https://github.com/Scalr/scalr-action.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/buzzy/scalr-terraform-cli/issues"
+    "url": "https://github.com/Scalr/scalr-action/issues"
   },
-  "homepage": "https://github.com/buzzy/scalr-terraform-cli#readme",
+  "homepage": "https://github.com/Scalr/scalr-action#readme",
   "dependencies": {
-    "@actions/core": "^1.9.0",
-    "@actions/io": "^1.1.2",
+    "@actions/core": "^1.10.1",
+    "@actions/io": "^1.1.3",
     "@actions/tool-cache": "^2.0.1",
-    "@hashicorp/js-releases": "^1.6.0",
+    "@hashicorp/js-releases": "^1.7.3",
     "await-spawn": "^4.0.2"
   }
 }
