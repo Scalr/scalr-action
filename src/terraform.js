@@ -107,11 +107,11 @@ const { stdout } = require("process");
     const zip = await toolcache.downloadTool(download_url);
     if (!zip) throw new Error("Failed to download tofu/terraform");
 
-    core.info("Decompressing OpenTufu/Terraform binary");
+    core.info("Decompressing OpenTofu/Terraform binary");
     const cli = await toolcache.extractZip(zip);
     if (!cli) throw new Error("Failed to decompress tofu/terraform");
 
-    core.info("Add toofu/terraform to PATH");
+    core.info("Add tofu/terraform to PATH");
     core.addPath(cli);
 
     if (wrapper) {
