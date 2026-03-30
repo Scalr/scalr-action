@@ -7,6 +7,8 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     defaults:
       run:
         shell: bash
@@ -17,7 +19,7 @@ jobs:
     steps:
       - uses: Scalr/scalr-action@test
         with:
-          terraform_version: 'auto'
+          terraform_version: '1.3.7'
           scalr_token: 'test-token'
           scalr_hostname: 'test.scalr.io'
 

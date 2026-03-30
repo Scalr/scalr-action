@@ -29,6 +29,8 @@ jobs:
     name: Integration Test
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Resolve workflow inputs
         shell: bash
@@ -43,7 +45,7 @@ jobs:
             echo "SCALR_WORKSPACE=${{ vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.WORKFLOW_REF }}
 

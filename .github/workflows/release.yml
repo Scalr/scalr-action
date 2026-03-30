@@ -13,17 +13,21 @@ jobs:
   build:
     name: Build dist files and release
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
-          node-version: "20.11.1"
+          node-version: "24"
+          cache: npm
 
       - name: Install dependencies
-        run: npm clean-install
+        run: npm ci
 
       - name: Install ncc
         run: npm --location=global install @vercel/ncc
@@ -38,6 +42,7 @@ jobs:
           git config --global user.email "github@scalr.com"
           git config --global user.name "Github Action"
           git add dist/*
+          git add package-lock.json
           git update-index --chmod=+x dist/wrapper/index.js
           git commit -m "Auto-build dist files" --allow-empty
           git push -f
