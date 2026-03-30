@@ -46,10 +46,36 @@ test("detectWorkspaceVersion resolves auto through default software versions", a
     if (calls.length === 1) {
       return Buffer.from(
         JSON.stringify({
+          name: "example-workspace",
           "iac-platform": "opentofu",
           "terraform-version": "auto",
+          relationships: {
+            environment: {
+              data: {
+                id: "env-123",
+              },
+            },
+          },
         })
       );
+    }
+
+    if (calls.length === 2) {
+      return Buffer.from(
+        JSON.stringify({
+          relationships: {
+            account: {
+              data: {
+                id: "acc-123",
+              },
+            },
+          },
+        })
+      );
+    }
+
+    if (calls.length === 3) {
+      return Buffer.from(JSON.stringify({ data: [] }));
     }
 
     return Buffer.from(
@@ -75,7 +101,17 @@ test("detectWorkspaceVersion resolves auto through default software versions", a
     iacPlatform: "tofu",
     version: "1.11.5",
   });
-  assert.deepEqual(calls[1], [
+  assert.deepEqual(calls[1], ["get-environment", "-environment=env-123"]);
+  assert.deepEqual(calls[2], [
+    "list-terraform-versions-usage",
+    "-filter-account=acc-123",
+    "-filter-environment=env-123",
+    "-filter-iac-platform=opentofu",
+    "-filter-is-auto=true",
+    "-query=example-workspace",
+    "-include=workspace",
+  ]);
+  assert.deepEqual(calls[3], [
     "list-software-versions",
     "-filter-software-type=opentofu",
     "-filter-status=active",
@@ -90,10 +126,36 @@ test("detectWorkspaceVersion fails when no default software version is returned"
     if (callCount === 1) {
       return Buffer.from(
         JSON.stringify({
+          name: "example-workspace",
           "iac-platform": "opentofu",
           "terraform-version": "auto",
+          relationships: {
+            environment: {
+              data: {
+                id: "env-123",
+              },
+            },
+          },
         })
       );
+    }
+
+    if (callCount === 2) {
+      return Buffer.from(
+        JSON.stringify({
+          relationships: {
+            account: {
+              data: {
+                id: "acc-123",
+              },
+            },
+          },
+        })
+      );
+    }
+
+    if (callCount === 3) {
+      return Buffer.from(JSON.stringify({ data: [] }));
     }
 
     return Buffer.from(JSON.stringify({ data: [] }));
@@ -122,4 +184,72 @@ test("detectWorkspaceVersion surfaces CLI stderr on command failure", async () =
     }),
     /flag provided but not defined: -filter\[software-type\]/
   );
+});
+
+test("detectWorkspaceVersion prefers workspace usage report for auto versions", async () => {
+  const calls = [];
+  const spawnCommand = async (_command, args) => {
+    calls.push(args);
+
+    if (calls.length === 1) {
+      return Buffer.from(
+        JSON.stringify({
+          name: "example-workspace",
+          "iac-platform": "opentofu",
+          "terraform-version": "auto",
+          relationships: {
+            environment: {
+              data: {
+                id: "env-123",
+              },
+            },
+          },
+        })
+      );
+    }
+
+    if (calls.length === 2) {
+      return Buffer.from(
+        JSON.stringify({
+          relationships: {
+            account: {
+              data: {
+                id: "acc-123",
+              },
+            },
+          },
+        })
+      );
+    }
+
+    return Buffer.from(
+      JSON.stringify({
+        data: [
+          {
+            attributes: {
+              version: "1.11.5",
+            },
+            relationships: {
+              workspace: {
+                data: {
+                  id: "ws-auto",
+                },
+              },
+            },
+          },
+        ],
+      })
+    );
+  };
+
+  const detected = await detectWorkspaceVersion({
+    workspace: "ws-auto",
+    spawnCommand,
+  });
+
+  assert.deepEqual(detected, {
+    iacPlatform: "tofu",
+    version: "1.11.5",
+  });
+  assert.equal(calls.length, 3);
 });

@@ -24,6 +24,15 @@ function extractDefaultSoftwareVersion(payload) {
   return normalizeVersion(defaultVersion?.attributes?.version);
 }
 
+function extractWorkspaceUsageVersion(payload, workspaceId) {
+  const usages = Array.isArray(payload?.data) ? payload.data : [];
+  const usage = usages.find(
+    (item) => item?.relationships?.workspace?.data?.id === workspaceId
+  );
+
+  return normalizeVersion(usage?.attributes?.version);
+}
+
 function formatCommandError(error) {
   const stderr = normalizeVersion(error?.stderr?.toString());
   const stdout = normalizeVersion(error?.stdout?.toString());
@@ -43,6 +52,40 @@ async function runScalrJsonCommand(spawnCommand, args) {
   }
 }
 
+async function detectWorkspaceUsageVersion({
+  workspaceData,
+  workspace,
+  iacPlatform,
+  spawnCommand,
+}) {
+  const environmentId = workspaceData?.relationships?.environment?.data?.id;
+  const workspaceName = normalizeVersion(workspaceData?.name);
+
+  if (!environmentId || !workspaceName) return "";
+
+  const environmentData = await runScalrJsonCommand(spawnCommand, [
+    "get-environment",
+    `-environment=${environmentId}`,
+  ]);
+
+  const accountId = environmentData?.relationships?.account?.data?.id;
+  if (!accountId) return "";
+
+  const usageData = await runScalrJsonCommand(spawnCommand, [
+    "list-terraform-versions-usage",
+    `-filter-account=${accountId}`,
+    `-filter-environment=${environmentId}`,
+    `-filter-iac-platform=${
+      iacPlatform === "tofu" ? "opentofu" : "terraform"
+    }`,
+    "-filter-is-auto=true",
+    `-query=${workspaceName}`,
+    "-include=workspace",
+  ]);
+
+  return extractWorkspaceUsageVersion(usageData, workspace);
+}
+
 async function detectWorkspaceVersion({ workspace, spawnCommand }) {
   const workspaceData = await runScalrJsonCommand(spawnCommand, [
     "get-workspace",
@@ -53,6 +96,14 @@ async function detectWorkspaceVersion({ workspace, spawnCommand }) {
   const version = normalizeVersion(workspaceData["terraform-version"]);
 
   if (!isAutoVersion(version)) return { iacPlatform, version };
+
+  const usageVersion = await detectWorkspaceUsageVersion({
+    workspaceData,
+    workspace,
+    iacPlatform,
+    spawnCommand,
+  });
+  if (usageVersion) return { iacPlatform, version: usageVersion };
 
   const softwareType = iacPlatform === "tofu" ? "opentofu" : "terraform";
   const softwareVersions = await runScalrJsonCommand(spawnCommand, [
@@ -73,6 +124,7 @@ async function detectWorkspaceVersion({ workspace, spawnCommand }) {
 module.exports = {
   detectWorkspaceVersion,
   extractDefaultSoftwareVersion,
+  extractWorkspaceUsageVersion,
   isAutoVersion,
   normalizeIacPlatform,
   normalizeVersion,
