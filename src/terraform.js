@@ -1,16 +1,16 @@
 const os = require("os");
 const fs = require("fs").promises;
 const path = require("path");
-const util = require("util");
-const exec = util.promisify(require("child_process").exec);
-const axios = require("axios");
-const spawn = require("await-spawn");
 
 const core = require("@actions/core");
 const toolcache = require("@actions/tool-cache");
 const io = require("@actions/io");
-const releases = require("@hashicorp/js-releases");
-const { stdout } = require("process");
+const {
+  buildOpenTofuDownloadUrl,
+  buildScalrCliDownloadUrl,
+  buildTerraformDownloadUrl,
+} = require("./download-url");
+const { runCommand } = require("./run-command");
 const {
   detectWorkspaceVersion,
   normalizeIacPlatform,
@@ -36,14 +36,21 @@ const {
     const arch = { x32: "386", x64: "amd64" }[os.arch()] || os.arch();
 
     core.info("Fetch latest version of Scalr CLI");
-    let latest = await axios.head(
-      "https://github.com/scalr/scalr-cli/releases/latest"
+    const latest = await fetch(
+      "https://github.com/Scalr/scalr-cli/releases/latest",
+      { method: "HEAD" }
     );
-    let ver = new URL(latest.request.res.responseUrl).pathname
+    if (!latest.ok) {
+      throw new Error(
+        `Failed to resolve latest Scalr CLI version: ${latest.status} ${latest.statusText}`
+      );
+    }
+
+    let ver = new URL(latest.url).pathname
       .split("/")
       .pop()
       .replace("v", "");
-    let url = `https://github.com/Scalr/scalr-cli/releases/download/v${ver}/scalr-cli_${ver}_${platform}_${arch}.zip`;
+    let url = buildScalrCliDownloadUrl(ver, platform, arch);
 
     core.info(`Downloading compressed Scalr CLI binary from ${url}`);
     const zip2 = await toolcache.downloadTool(url);
@@ -79,7 +86,7 @@ const {
         );
         const detected = await detectWorkspaceVersion({
           workspace,
-          spawnCommand: spawn,
+          spawnCommand: runCommand,
         });
         iac_platform = detected.iacPlatform;
         version = detected.version;
@@ -94,13 +101,10 @@ const {
     let download_url = "";
     if (iac_platform === "terraform") {
       core.info(`Preparing to download Terraform version ${version}`);
-      const release = await releases.getRelease("terraform", version);
-      const build = release.getBuild(platform, arch);
-      if (!build) throw new Error("No matching version found");
-      download_url = build.url;
+      download_url = buildTerraformDownloadUrl(version, platform, arch);
     } else {
       core.info(`Preparing to download OpenTofu version ${version}`);
-      download_url = `https://github.com/opentofu/opentofu/releases/download/v${version}/tofu_${version}_${platform}_${arch}.zip`;
+      download_url = buildOpenTofuDownloadUrl(version, platform, arch);
     }
 
     core.info(
