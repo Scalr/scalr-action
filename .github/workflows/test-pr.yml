@@ -1,6 +1,11 @@
 name: PR Integration Test
 
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
   workflow_dispatch:
     inputs:
       ref:
@@ -30,14 +35,25 @@ permissions:
 jobs:
   integration:
     name: Integration Test
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
-    env:
-      SCALR_HOSTNAME: ${{ inputs.scalr_hostname || vars.SCALR_HOSTNAME }}
-      SCALR_WORKSPACE: ${{ inputs.scalr_workspace || vars.SCALR_WORKSPACE }}
     steps:
+      - name: Resolve workflow inputs
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "WORKFLOW_REF=${{ github.event.inputs.ref || github.sha }}" >> "$GITHUB_ENV"
+            echo "SCALR_HOSTNAME=${{ github.event.inputs.scalr_hostname || vars.SCALR_HOSTNAME }}" >> "$GITHUB_ENV"
+            echo "SCALR_WORKSPACE=${{ github.event.inputs.scalr_workspace || vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
+          else
+            echo "WORKFLOW_REF=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+            echo "SCALR_HOSTNAME=${{ vars.SCALR_HOSTNAME }}" >> "$GITHUB_ENV"
+            echo "SCALR_WORKSPACE=${{ vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ env.WORKFLOW_REF }}
 
       - name: Validate configuration
         shell: bash
@@ -54,13 +70,13 @@ jobs:
           scalr_hostname: ${{ env.SCALR_HOSTNAME }}
           scalr_token: ${{ secrets.SCALR_API_TOKEN }}
           scalr_workspace: ${{ env.SCALR_WORKSPACE }}
-          iac_platform: ${{ inputs.iac_platform }}
+          iac_platform: ${{ github.event.inputs.iac_platform || 'tofu' }}
 
       - name: Print CLI versions
         shell: bash
         run: |
           scalr -version
-          if [ "${{ inputs.iac_platform }}" = "terraform" ]; then
+          if [ "${{ github.event.inputs.iac_platform || 'tofu' }}" = "terraform" ]; then
             terraform -version
           else
             tofu -version
