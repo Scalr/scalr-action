@@ -57,8 +57,8 @@ async function detectWorkspaceVersion({ workspace, spawnCommand }) {
   const softwareType = iacPlatform === "tofu" ? "opentofu" : "terraform";
   const softwareVersions = await runScalrJsonCommand(spawnCommand, [
     "list-software-versions",
-    `-filter[software-type]=${softwareType}`,
-    "-filter[status]=active",
+    `-filter-software-type=${softwareType}`,
+    "-filter-status=active",
   ]);
 
   const resolvedVersion = extractDefaultSoftwareVersion(softwareVersions);
