@@ -12,6 +12,17 @@ on:
         description: "Git ref to test. Defaults to the current SHA."
         required: false
         type: string
+      binary_version:
+        description: "Optional explicit Terraform/OpenTofu version to install. If set, skips workspace autodetect."
+        required: false
+        type: string
+      iac_platform:
+        description: "Required when binary_version is set."
+        required: false
+        type: choice
+        options:
+          - terraform
+          - tofu
       scalr_hostname:
         description: "Scalr hostname. Defaults to repo variable SCALR_HOSTNAME."
         required: false
@@ -37,10 +48,14 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "WORKFLOW_REF=${{ github.event.inputs.ref || github.sha }}" >> "$GITHUB_ENV"
+            echo "BINARY_VERSION=${{ github.event.inputs.binary_version }}" >> "$GITHUB_ENV"
+            echo "IAC_PLATFORM=${{ github.event.inputs.iac_platform }}" >> "$GITHUB_ENV"
             echo "SCALR_HOSTNAME=${{ github.event.inputs.scalr_hostname || vars.SCALR_HOSTNAME }}" >> "$GITHUB_ENV"
             echo "SCALR_WORKSPACE=${{ github.event.inputs.scalr_workspace || vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
           else
             echo "WORKFLOW_REF=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+            echo "BINARY_VERSION=" >> "$GITHUB_ENV"
+            echo "IAC_PLATFORM=" >> "$GITHUB_ENV"
             echo "SCALR_HOSTNAME=${{ vars.SCALR_HOSTNAME }}" >> "$GITHUB_ENV"
             echo "SCALR_WORKSPACE=${{ vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
           fi
@@ -56,18 +71,26 @@ jobs:
         run: |
           test -n "$SCALR_API_TOKEN" || { echo "Missing secret SCALR_API_TOKEN"; exit 1; }
           test -n "$SCALR_HOSTNAME" || { echo "Set input scalr_hostname or repo variable SCALR_HOSTNAME"; exit 1; }
-          test -n "$SCALR_WORKSPACE" || { echo "Set input scalr_workspace or repo variable SCALR_WORKSPACE"; exit 1; }
+          if [ -n "$BINARY_VERSION" ]; then
+            test -n "$IAC_PLATFORM" || { echo "Set input iac_platform when binary_version is provided"; exit 1; }
+          else
+            test -n "$SCALR_WORKSPACE" || { echo "Set input scalr_workspace or repo variable SCALR_WORKSPACE"; exit 1; }
+          fi
 
       - name: Show test target
         shell: bash
         run: |
           echo "ref=$WORKFLOW_REF"
+          echo "binary_version=${BINARY_VERSION:-<autodetect>}"
+          echo "iac_platform=${IAC_PLATFORM:-<autodetect>}"
           echo "scalr_hostname=$SCALR_HOSTNAME"
-          echo "scalr_workspace=$SCALR_WORKSPACE"
+          echo "scalr_workspace=${SCALR_WORKSPACE:-<not set>}"
 
       - name: Configure Scalr
         uses: ./
         with:
+          binary_version: ${{ env.BINARY_VERSION }}
+          iac_platform: ${{ env.IAC_PLATFORM }}
           scalr_hostname: ${{ env.SCALR_HOSTNAME }}
           scalr_token: ${{ secrets.SCALR_API_TOKEN }}
           scalr_workspace: ${{ env.SCALR_WORKSPACE }}
@@ -82,7 +105,7 @@ jobs:
           command -v tofu >/dev/null && tofu -version || true
 
       - name: Dump workspace metadata
-        if: always()
+        if: ${{ always() && env.SCALR_WORKSPACE != '' }}
         shell: bash
         continue-on-error: true
         run: |

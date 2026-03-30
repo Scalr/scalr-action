@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
     extractDefaultSoftwareVersion,
     getEnvironmentAccountId,
     getWorkspaceEnvironmentId,
+    isAutoVersion,
     normalizeIacPlatform,
   } = require("../terraform-version");
 
@@ -47,6 +48,14 @@ test("extractDefaultSoftwareVersion prefers latest version from flattened CLI ou
     ]),
     "1.11.5"
   );
+});
+
+test("isAutoVersion treats auto, latest, unknown, and empty values as unresolved", () => {
+  assert.equal(isAutoVersion("auto"), true);
+  assert.equal(isAutoVersion("latest"), true);
+  assert.equal(isAutoVersion("Unknown"), true);
+  assert.equal(isAutoVersion(""), true);
+  assert.equal(isAutoVersion("1.6.3"), false);
 });
 
 test("detectWorkspaceVersion returns explicit workspace version without fallback", async () => {
@@ -260,4 +269,153 @@ test("detectWorkspaceVersion prefers workspace usage report for auto versions", 
     version: "1.11.5",
   });
   assert.equal(calls.length, 3);
+});
+
+test("detectWorkspaceVersion treats latest workspace and usage values as unresolved and falls back to latest software version", async () => {
+  const calls = [];
+  const spawnCommand = async (_command, args) => {
+    calls.push(args);
+
+    if (calls.length === 1) {
+      return Buffer.from(
+        JSON.stringify({
+          environment: {
+            id: "env-123",
+          },
+          "iac-platform": "opentofu",
+          "terraform-version": "latest",
+        })
+      );
+    }
+
+    if (calls.length === 2) {
+      return Buffer.from(
+        JSON.stringify({
+          account: {
+            id: "acc-123",
+          },
+        })
+      );
+    }
+
+    if (calls.length === 3) {
+      return Buffer.from(
+        JSON.stringify([
+          {
+            version: "latest",
+            workspace: {
+              id: "ws-latest",
+            },
+          },
+        ])
+      );
+    }
+
+    return Buffer.from(
+      JSON.stringify({
+        data: [
+          {
+            version: "1.9.0",
+            default: true,
+            latest: false,
+          },
+          {
+            version: "1.11.5",
+            default: false,
+            latest: true,
+          },
+        ],
+      })
+    );
+  };
+
+  const detected = await detectWorkspaceVersion({
+    workspace: "ws-latest",
+    spawnCommand,
+  });
+
+  assert.deepEqual(detected, {
+    iacPlatform: "tofu",
+    version: "1.11.5",
+  });
+  assert.equal(calls.length, 4);
+});
+
+test("detectWorkspaceVersion resolves terraform latest through software versions fallback", async () => {
+  const calls = [];
+  const spawnCommand = async (_command, args) => {
+    calls.push(args);
+
+    if (calls.length === 1) {
+      return Buffer.from(
+        JSON.stringify({
+          environment: {
+            id: "env-terraform",
+          },
+          "iac-platform": "terraform",
+          "terraform-version": "latest",
+        })
+      );
+    }
+
+    if (calls.length === 2) {
+      return Buffer.from(
+        JSON.stringify({
+          account: {
+            id: "acc-terraform",
+          },
+        })
+      );
+    }
+
+    if (calls.length === 3) {
+      return Buffer.from(
+        JSON.stringify([
+          {
+            version: "Unknown",
+            workspace: {
+              id: "ws-terraform",
+            },
+          },
+        ])
+      );
+    }
+
+    return Buffer.from(
+      JSON.stringify([
+        {
+          version: "1.4.7",
+          default: true,
+          latest: false,
+        },
+        {
+          version: "1.5.7",
+          default: false,
+          latest: true,
+        },
+      ])
+    );
+  };
+
+  const detected = await detectWorkspaceVersion({
+    workspace: "ws-terraform",
+    spawnCommand,
+  });
+
+  assert.deepEqual(detected, {
+    iacPlatform: "terraform",
+    version: "1.5.7",
+  });
+  assert.deepEqual(calls[2], [
+    "list-terraform-versions-usage",
+    "-filter-account=acc-terraform",
+    "-filter-environment=env-terraform",
+    "-filter-iac-platform=terraform",
+    "-include=workspace",
+  ]);
+  assert.deepEqual(calls[3], [
+    "list-software-versions",
+    "-filter-software-type=terraform",
+    "-filter-status=active",
+  ]);
 });
