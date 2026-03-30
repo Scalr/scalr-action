@@ -1,16 +1,52 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const {
-  detectWorkspaceVersion,
-  normalizeIacPlatform,
-} = require("../src/terraform-version");
+  const {
+    detectWorkspaceVersion,
+    extractDefaultSoftwareVersion,
+    getEnvironmentAccountId,
+    getWorkspaceEnvironmentId,
+    normalizeIacPlatform,
+  } = require("../src/terraform-version");
 
 test("normalizeIacPlatform maps OpenTofu aliases to tofu", () => {
   assert.equal(normalizeIacPlatform("tofu"), "tofu");
   assert.equal(normalizeIacPlatform("opentofu"), "tofu");
   assert.equal(normalizeIacPlatform("terraform"), "terraform");
   assert.equal(normalizeIacPlatform("unexpected"), "terraform");
+});
+
+test("flattened CLI helpers extract workspace environment and account ids", () => {
+  assert.equal(
+    getWorkspaceEnvironmentId({
+      environment: { id: "env-flat" },
+    }),
+    "env-flat"
+  );
+  assert.equal(
+    getEnvironmentAccountId({
+      account: { id: "acc-flat" },
+    }),
+    "acc-flat"
+  );
+});
+
+test("extractDefaultSoftwareVersion prefers latest version from flattened CLI output", () => {
+  assert.equal(
+    extractDefaultSoftwareVersion([
+      {
+        version: "1.9.0",
+        default: true,
+        latest: false,
+      },
+      {
+        version: "1.11.5",
+        default: false,
+        latest: true,
+      },
+    ]),
+    "1.11.5"
+  );
 });
 
 test("detectWorkspaceVersion returns explicit workspace version without fallback", async () => {
@@ -47,15 +83,11 @@ test("detectWorkspaceVersion resolves auto through default software versions", a
       return Buffer.from(
         JSON.stringify({
           name: "example-workspace",
+          environment: {
+            id: "env-123",
+          },
           "iac-platform": "opentofu",
           "terraform-version": "auto",
-          relationships: {
-            environment: {
-              data: {
-                id: "env-123",
-              },
-            },
-          },
         })
       );
     }
@@ -63,12 +95,8 @@ test("detectWorkspaceVersion resolves auto through default software versions", a
     if (calls.length === 2) {
       return Buffer.from(
         JSON.stringify({
-          relationships: {
-            account: {
-              data: {
-                id: "acc-123",
-              },
-            },
+          account: {
+            id: "acc-123",
           },
         })
       );
@@ -107,8 +135,6 @@ test("detectWorkspaceVersion resolves auto through default software versions", a
     "-filter-account=acc-123",
     "-filter-environment=env-123",
     "-filter-iac-platform=opentofu",
-    "-filter-is-auto=true",
-    "-query=example-workspace",
     "-include=workspace",
   ]);
   assert.deepEqual(calls[3], [
@@ -127,15 +153,11 @@ test("detectWorkspaceVersion fails when no default software version is returned"
       return Buffer.from(
         JSON.stringify({
           name: "example-workspace",
+          environment: {
+            id: "env-123",
+          },
           "iac-platform": "opentofu",
           "terraform-version": "auto",
-          relationships: {
-            environment: {
-              data: {
-                id: "env-123",
-              },
-            },
-          },
         })
       );
     }
@@ -143,12 +165,8 @@ test("detectWorkspaceVersion fails when no default software version is returned"
     if (callCount === 2) {
       return Buffer.from(
         JSON.stringify({
-          relationships: {
-            account: {
-              data: {
-                id: "acc-123",
-              },
-            },
+          account: {
+            id: "acc-123",
           },
         })
       );
@@ -195,15 +213,11 @@ test("detectWorkspaceVersion prefers workspace usage report for auto versions", 
       return Buffer.from(
         JSON.stringify({
           name: "example-workspace",
+          environment: {
+            id: "env-123",
+          },
           "iac-platform": "opentofu",
           "terraform-version": "auto",
-          relationships: {
-            environment: {
-              data: {
-                id: "env-123",
-              },
-            },
-          },
         })
       );
     }
@@ -211,34 +225,28 @@ test("detectWorkspaceVersion prefers workspace usage report for auto versions", 
     if (calls.length === 2) {
       return Buffer.from(
         JSON.stringify({
-          relationships: {
-            account: {
-              data: {
-                id: "acc-123",
-              },
-            },
+          account: {
+            id: "acc-123",
           },
         })
       );
     }
 
     return Buffer.from(
-      JSON.stringify({
-        data: [
-          {
-            attributes: {
-              version: "1.11.5",
-            },
-            relationships: {
-              workspace: {
-                data: {
-                  id: "ws-auto",
-                },
-              },
-            },
+      JSON.stringify([
+        {
+          version: "Unknown",
+          workspace: {
+            id: "ws-other",
           },
-        ],
-      })
+        },
+        {
+          version: "1.11.5",
+          workspace: {
+            id: "ws-auto",
+          },
+        },
+      ])
     );
   };
 

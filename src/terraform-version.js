@@ -11,26 +11,58 @@ function normalizeVersion(version) {
 
 function isAutoVersion(version) {
   const normalized = normalizeVersion(version);
-  return normalized === "" || normalized.toLowerCase() === "auto";
+  return (
+    normalized === "" ||
+    normalized.toLowerCase() === "auto" ||
+    normalized.toLowerCase() === "latest" ||
+    normalized.toLowerCase() === "unknown"
+  );
+}
+
+function getItems(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
 }
 
 function extractDefaultSoftwareVersion(payload) {
-  const versions = Array.isArray(payload?.data) ? payload.data : [];
+  const versions = getItems(payload);
   const defaultVersion =
-    versions.find((item) => item?.attributes?.default) ||
+    versions.find((item) => item?.attributes?.latest || item?.latest) ||
+    versions.find((item) => item?.attributes?.default || item?.default) ||
     versions.find((item) => item?.attributes?.latest) ||
     versions[0];
 
-  return normalizeVersion(defaultVersion?.attributes?.version);
+  return normalizeVersion(
+    defaultVersion?.attributes?.version ?? defaultVersion?.version
+  );
 }
 
 function extractWorkspaceUsageVersion(payload, workspaceId) {
-  const usages = Array.isArray(payload?.data) ? payload.data : [];
+  const usages = getItems(payload);
   const usage = usages.find(
-    (item) => item?.relationships?.workspace?.data?.id === workspaceId
+    (item) =>
+      item?.relationships?.workspace?.data?.id === workspaceId ||
+      item?.workspace?.id === workspaceId
   );
 
-  return normalizeVersion(usage?.attributes?.version);
+  return normalizeVersion(usage?.attributes?.version ?? usage?.version);
+}
+
+function getWorkspaceEnvironmentId(workspaceData) {
+  return (
+    workspaceData?.environment?.id ||
+    workspaceData?.relationships?.environment?.data?.id ||
+    ""
+  );
+}
+
+function getEnvironmentAccountId(environmentData) {
+  return (
+    environmentData?.account?.id ||
+    environmentData?.relationships?.account?.data?.id ||
+    ""
+  );
 }
 
 function formatCommandError(error) {
@@ -58,17 +90,16 @@ async function detectWorkspaceUsageVersion({
   iacPlatform,
   spawnCommand,
 }) {
-  const environmentId = workspaceData?.relationships?.environment?.data?.id;
-  const workspaceName = normalizeVersion(workspaceData?.name);
+  const environmentId = getWorkspaceEnvironmentId(workspaceData);
 
-  if (!environmentId || !workspaceName) return "";
+  if (!environmentId) return "";
 
   const environmentData = await runScalrJsonCommand(spawnCommand, [
     "get-environment",
     `-environment=${environmentId}`,
   ]);
 
-  const accountId = environmentData?.relationships?.account?.data?.id;
+  const accountId = getEnvironmentAccountId(environmentData);
   if (!accountId) return "";
 
   const usageData = await runScalrJsonCommand(spawnCommand, [
@@ -78,8 +109,6 @@ async function detectWorkspaceUsageVersion({
     `-filter-iac-platform=${
       iacPlatform === "tofu" ? "opentofu" : "terraform"
     }`,
-    "-filter-is-auto=true",
-    `-query=${workspaceName}`,
     "-include=workspace",
   ]);
 
@@ -103,7 +132,9 @@ async function detectWorkspaceVersion({ workspace, spawnCommand }) {
     iacPlatform,
     spawnCommand,
   });
-  if (usageVersion) return { iacPlatform, version: usageVersion };
+  if (usageVersion && !isAutoVersion(usageVersion)) {
+    return { iacPlatform, version: usageVersion };
+  }
 
   const softwareType = iacPlatform === "tofu" ? "opentofu" : "terraform";
   const softwareVersions = await runScalrJsonCommand(spawnCommand, [
@@ -125,6 +156,9 @@ module.exports = {
   detectWorkspaceVersion,
   extractDefaultSoftwareVersion,
   extractWorkspaceUsageVersion,
+  getEnvironmentAccountId,
+  getItems,
+  getWorkspaceEnvironmentId,
   isAutoVersion,
   normalizeIacPlatform,
   normalizeVersion,
