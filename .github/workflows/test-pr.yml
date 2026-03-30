@@ -20,14 +20,6 @@ on:
         description: "Workspace ID. Defaults to repo variable SCALR_WORKSPACE."
         required: false
         type: string
-      iac_platform:
-        description: "IaC platform to validate."
-        required: true
-        default: tofu
-        type: choice
-        options:
-          - tofu
-          - terraform
 
 permissions:
   contents: read
@@ -64,20 +56,49 @@ jobs:
           test -n "$SCALR_HOSTNAME" || { echo "Set input scalr_hostname or repo variable SCALR_HOSTNAME"; exit 1; }
           test -n "$SCALR_WORKSPACE" || { echo "Set input scalr_workspace or repo variable SCALR_WORKSPACE"; exit 1; }
 
+      - name: Show test target
+        shell: bash
+        run: |
+          echo "ref=$WORKFLOW_REF"
+          echo "scalr_hostname=$SCALR_HOSTNAME"
+          echo "scalr_workspace=$SCALR_WORKSPACE"
+
       - name: Configure Scalr
         uses: ./
         with:
           scalr_hostname: ${{ env.SCALR_HOSTNAME }}
           scalr_token: ${{ secrets.SCALR_API_TOKEN }}
           scalr_workspace: ${{ env.SCALR_WORKSPACE }}
-          iac_platform: ${{ github.event.inputs.iac_platform || 'tofu' }}
 
       - name: Print CLI versions
+        if: always()
+        shell: bash
+        continue-on-error: true
+        run: |
+          command -v scalr >/dev/null && scalr -version || true
+          command -v terraform >/dev/null && terraform -version || true
+          command -v tofu >/dev/null && tofu -version || true
+
+      - name: Dump workspace metadata
+        if: always()
+        shell: bash
+        continue-on-error: true
+        run: |
+          if command -v scalr >/dev/null; then
+            scalr get-workspace -workspace="$SCALR_WORKSPACE"
+          else
+            echo "scalr CLI not available"
+          fi
+
+      - name: Assert expected binary exists
+        if: success()
         shell: bash
         run: |
-          scalr -version
-          if [ "${{ github.event.inputs.iac_platform || 'tofu' }}" = "terraform" ]; then
+          if command -v tofu >/dev/null; then
+            tofu -version
+          elif command -v terraform >/dev/null; then
             terraform -version
           else
-            tofu -version
+            echo "Neither tofu nor terraform was installed"
+            exit 1
           fi
