@@ -78,7 +78,6 @@ test("detectWorkspaceVersion resolves auto through default software versions", a
   assert.deepEqual(calls[1], [
     "list-software-versions",
     "-filter[software-type]=opentofu",
-    "-filter[default]=true",
     "-filter[status]=active",
   ]);
 });
@@ -106,5 +105,21 @@ test("detectWorkspaceVersion fails when no default software version is returned"
       spawnCommand,
     }),
     /Unable to resolve default OpenTofu version/
+  );
+});
+
+test("detectWorkspaceVersion surfaces CLI stderr on command failure", async () => {
+  const spawnCommand = async () => {
+    const error = new Error("child exited with code 2");
+    error.stderr = Buffer.from("unknown flag: -filter[default]");
+    throw error;
+  };
+
+  await assert.rejects(
+    detectWorkspaceVersion({
+      workspace: "ws-cli-error",
+      spawnCommand,
+    }),
+    /unknown flag: -filter\[default\]/
   );
 });

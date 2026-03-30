@@ -17,14 +17,30 @@ function isAutoVersion(version) {
 function extractDefaultSoftwareVersion(payload) {
   const versions = Array.isArray(payload?.data) ? payload.data : [];
   const defaultVersion =
-    versions.find((item) => item?.attributes?.default) || versions[0];
+    versions.find((item) => item?.attributes?.default) ||
+    versions.find((item) => item?.attributes?.latest) ||
+    versions[0];
 
   return normalizeVersion(defaultVersion?.attributes?.version);
 }
 
+function formatCommandError(error) {
+  const stderr = normalizeVersion(error?.stderr?.toString());
+  const stdout = normalizeVersion(error?.stdout?.toString());
+
+  if (stderr) return stderr;
+  if (stdout) return stdout;
+  if (error?.message) return error.message;
+  return "unknown error";
+}
+
 async function runScalrJsonCommand(spawnCommand, args) {
-  const output = await spawnCommand("scalr", args);
-  return JSON.parse(output.toString());
+  try {
+    const output = await spawnCommand("scalr", args);
+    return JSON.parse(output.toString());
+  } catch (error) {
+    throw new Error(formatCommandError(error));
+  }
 }
 
 async function detectWorkspaceVersion({ workspace, spawnCommand }) {
@@ -42,7 +58,6 @@ async function detectWorkspaceVersion({ workspace, spawnCommand }) {
   const softwareVersions = await runScalrJsonCommand(spawnCommand, [
     "list-software-versions",
     `-filter[software-type]=${softwareType}`,
-    "-filter[default]=true",
     "-filter[status]=active",
   ]);
 
