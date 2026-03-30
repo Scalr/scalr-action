@@ -1,0 +1,67 @@
+name: PR Integration Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to test. Defaults to the current SHA."
+        required: false
+        type: string
+      scalr_hostname:
+        description: "Scalr hostname. Defaults to repo variable SCALR_HOSTNAME."
+        required: false
+        type: string
+      scalr_workspace:
+        description: "Workspace ID. Defaults to repo variable SCALR_WORKSPACE."
+        required: false
+        type: string
+      iac_platform:
+        description: "IaC platform to validate."
+        required: true
+        default: tofu
+        type: choice
+        options:
+          - tofu
+          - terraform
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    env:
+      SCALR_HOSTNAME: ${{ inputs.scalr_hostname || vars.SCALR_HOSTNAME }}
+      SCALR_WORKSPACE: ${{ inputs.scalr_workspace || vars.SCALR_WORKSPACE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Validate configuration
+        shell: bash
+        env:
+          SCALR_API_TOKEN: ${{ secrets.SCALR_API_TOKEN }}
+        run: |
+          test -n "$SCALR_API_TOKEN" || { echo "Missing secret SCALR_API_TOKEN"; exit 1; }
+          test -n "$SCALR_HOSTNAME" || { echo "Set input scalr_hostname or repo variable SCALR_HOSTNAME"; exit 1; }
+          test -n "$SCALR_WORKSPACE" || { echo "Set input scalr_workspace or repo variable SCALR_WORKSPACE"; exit 1; }
+
+      - name: Configure Scalr
+        uses: ./
+        with:
+          scalr_hostname: ${{ env.SCALR_HOSTNAME }}
+          scalr_token: ${{ secrets.SCALR_API_TOKEN }}
+          scalr_workspace: ${{ env.SCALR_WORKSPACE }}
+          iac_platform: ${{ inputs.iac_platform }}
+
+      - name: Print CLI versions
+        shell: bash
+        run: |
+          scalr -version
+          if [ "${{ inputs.iac_platform }}" = "terraform" ]; then
+            terraform -version
+          else
+            tofu -version
+          fi

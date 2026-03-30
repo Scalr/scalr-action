@@ -11,6 +11,10 @@ const toolcache = require("@actions/tool-cache");
 const io = require("@actions/io");
 const releases = require("@hashicorp/js-releases");
 const { stdout } = require("process");
+const {
+  detectWorkspaceVersion,
+  normalizeIacPlatform,
+} = require("./terraform-version");
 
 (async () => {
   try {
@@ -18,8 +22,7 @@ const { stdout } = require("process");
     const token = core.getInput("scalr_token", { required: true });
     const workspace = core.getInput("scalr_workspace");
 
-    let iac_platform = core.getInput("iac_platform") || "terraform";
-    if (iac_platform !== "tofu") iac_platform = "terraform";
+    let iac_platform = normalizeIacPlatform(core.getInput("iac_platform"));
 
     let version =
       core.getInput("binary_version") || core.getInput("terraform_version");
@@ -70,22 +73,21 @@ const { stdout } = require("process");
           "Please specify workspace to autodetect OpenTofu/Terraform version"
         );
 
-      let data;
       try {
         core.info(
           `Fetching OpenTofu/Terraform version for workspace ${workspace}`
         );
-        data = await spawn("scalr", [
-          "get-workspace",
-          "-workspace=" + workspace,
-        ]);
-
-        data = JSON.parse(data.toString());
-
-        iac_platform = data["iac-platform"];
-        version = data["terraform-version"];
+        const detected = await detectWorkspaceVersion({
+          workspace,
+          spawnCommand: spawn,
+        });
+        iac_platform = detected.iacPlatform;
+        version = detected.version;
+        core.info(`Resolved OpenTofu/Terraform version ${version}`);
       } catch (e) {
-        throw new Error("Unable to find specified workspace");
+        throw new Error(
+          `Unable to autodetect OpenTofu/Terraform version: ${e.message}`
+        );
       }
     }
 
