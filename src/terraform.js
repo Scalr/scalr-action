@@ -238,8 +238,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  getArch,
-  getPlatform,
   getTerraformRcPath,
   getWrapperSourcePath,
   main,

@@ -1,14 +1,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-  const {
-    detectWorkspaceVersion,
-    extractDefaultSoftwareVersion,
-    getEnvironmentAccountId,
-    getWorkspaceEnvironmentId,
-    isAutoVersion,
-    normalizeIacPlatform,
-  } = require("../terraform-version");
+const {
+  detectWorkspaceVersion,
+  extractDefaultSoftwareVersion,
+  getEnvironmentAccountId,
+  getWorkspaceEnvironmentId,
+  isAutoVersion,
+  normalizeIacPlatform,
+} = require("../terraform-version");
 
 test("normalizeIacPlatform maps OpenTofu aliases to tofu", () => {
   assert.equal(normalizeIacPlatform("tofu"), "tofu");

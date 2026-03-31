@@ -5,7 +5,7 @@ function normalizeIacPlatform(iacPlatform) {
 }
 
 function normalizeVersion(version) {
-  if (version === undefined || version === null) return "";
+  if (!version) return "";
   return String(version).trim();
 }
 
@@ -67,9 +67,9 @@ function getEnvironmentAccountId(environmentData) {
 
 function formatCommandError(error) {
   const stderr = normalizeVersion(error?.stderr?.toString());
-  const stdout = normalizeVersion(error?.stdout?.toString());
-
   if (stderr) return stderr;
+
+  const stdout = normalizeVersion(error?.stdout?.toString());
   if (stdout) return stdout;
   if (error?.message) return error.message;
   return "unknown error";
@@ -155,11 +155,8 @@ async function detectWorkspaceVersion({ workspace, spawnCommand }) {
 module.exports = {
   detectWorkspaceVersion,
   extractDefaultSoftwareVersion,
-  extractWorkspaceUsageVersion,
   getEnvironmentAccountId,
-  getItems,
   getWorkspaceEnvironmentId,
   isAutoVersion,
   normalizeIacPlatform,
-  normalizeVersion,
 };

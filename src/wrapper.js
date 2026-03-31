@@ -16,7 +16,7 @@ function setCommandOutputs(coreModule, stdout, stderr, code) {
   coreModule.setOutput("exitcode", code);
 }
 
-function emitStream(consoleModule, chunk) {
+function logChunk(consoleModule, chunk) {
   consoleModule.log(chunk.toString().trim());
 }
 
@@ -67,12 +67,12 @@ function runWrapper({
   });
 
   child.stdout.on("data", (data) => {
-    emitStream(consoleModule, data);
+    logChunk(consoleModule, data);
     stdout += data;
   });
 
   child.stderr.on("data", (data) => {
-    emitStream(consoleModule, data);
+    logChunk(consoleModule, data);
     stderr += data;
   });
 
@@ -84,7 +84,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  emitStream,
   runWrapper,
   setCommandOutputs,
   shouldCollectTerraformOutputs,

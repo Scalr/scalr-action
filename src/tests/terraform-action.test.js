@@ -48,23 +48,6 @@ function createToolcache() {
   };
 }
 
-function createIo() {
-  return {
-    copied: [],
-    createdDirs: [],
-    moved: [],
-    cp: async (source, target) => {
-      this.copied?.push({ source, target });
-    },
-    mkdirP: async (dir) => {
-      this.createdDirs?.push(dir);
-    },
-    mv: async (source, target) => {
-      this.moved?.push({ source, target });
-    },
-  };
-}
-
 function createFs() {
   const writes = [];
   return {
