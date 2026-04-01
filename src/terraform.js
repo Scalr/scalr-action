@@ -56,10 +56,12 @@ function validateRequestedVersion(version) {
   }
 }
 
-function getWrapperSourcePath(pathModule = path, dirname = __dirname) {
-  return pathModule.basename(dirname) === "src"
-    ? pathModule.resolve(dirname, "wrapper.js")
-    : pathModule.resolve(dirname, "..", "wrapper", "index.js");
+function getWrapperSourcePath(pathModule = path, entryFilePath = __filename) {
+  const entryDir = pathModule.dirname(entryFilePath);
+
+  return pathModule.basename(entryDir) === "src"
+    ? pathModule.resolve(entryDir, "wrapper.js")
+    : pathModule.resolve(entryDir, "..", "wrapper", "index.js");
 }
 
 async function runAction({
@@ -186,7 +188,10 @@ async function runAction({
     coreModule.info(
       "Install wrapper to forward OpenTofu/Terraform output to future actions"
     );
-    source = getWrapperSourcePath(pathModule);
+    source = getWrapperSourcePath(
+      pathModule,
+      require.main === module && process.argv[1] ? process.argv[1] : __filename
+    );
     target = [binaryPath, iacPlatform].join(pathModule.sep);
     await ioModule.cp(source, target);
   }
