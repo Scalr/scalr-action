@@ -13,14 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Node.js
-        uses: actions/setup-node@v6
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: "24"
-          cache: npm
+          bun-version: "1.3.4"
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Run tests
-        run: npm test
+        run: bun run test

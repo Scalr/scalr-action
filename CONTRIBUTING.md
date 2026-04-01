@@ -8,7 +8,25 @@ Here are the basic steps to make a change and contribute it back to the project.
 
 ## Development environment
 
-We recommend using [VS Studio Code](https://code.visualstudio.com/) to edit the code. As the Scalr Github Action is written in [NodeJS](https://nodejs.org/), you will need to install Node somewhere in your PATH.
+We recommend using [VS Studio Code](https://code.visualstudio.com/) to edit the code. As the Scalr Github Action is written in JavaScript and uses [Bun](https://bun.sh/) as the primary package manager, you should install Bun locally before working on the project.
+
+Install dependencies:
+
+```bash
+bun install
+```
+
+Run tests:
+
+```bash
+bun run test
+```
+
+Rebuild bundled action artifacts:
+
+```bash
+bun run build
+```
 
 After you made you changes and committed back to github, you should run the Github Action called "Build dist files and release". You will be able to pick what version you want
 to release.
