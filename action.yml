@@ -1,5 +1,5 @@
 name: "Scalr Github Action"
-description: "Installs Scalr and Terraform CLI and configures them for Scalr use."
+description: "Installs Scalr and OpenTofu/Terraform CLI and configures them for Scalr use."
 author: "Scalr"
 inputs:
   scalr_hostname:
@@ -16,7 +16,7 @@ inputs:
     default: "terraform"
     required: false
   binary_version:
-    description: "The version of OpenTofu(Terraform CLI to install. Should match the version set in your Scalr Workspace. Will be autodetected if left empty and workspace is set."
+    description: "The concrete version of OpenTofu/Terraform CLI to install. Leave empty and provide scalr_workspace to autodetect from Scalr."
     required: false
   binary_wrapper:
     description: "Whether or not to install a wrapper to wrap subsequent calls of the `tofu/terraform` binary and expose its STDOUT, STDERR, and exit code as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`."

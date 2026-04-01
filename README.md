@@ -20,19 +20,22 @@ Supported on the following GitHub Actions runners\:
 - `windows-latest` (be sure to set the shell to Bash)
 - `macos-latest`
 
-If manually specifying a Opentofu/Terraform version, please remember to set the same version as set in your Scalr Workspace.
+If manually specifying an OpenTofu/Terraform version, provide a concrete version and make sure it matches the version you expect to use.
+To autodetect the version from Scalr, leave `binary_version` empty and set `scalr_workspace`.
+Values such as `auto` and `latest` are not valid explicit `binary_version` values.
 You also need to generate a [Scalr API Token](https://docs.scalr.io/docs/creating-a-workspace-1#cli--workspace) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
 
 The following steps can access OpenTofu/Terraform outputs:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v6
   - uses: Scalr/scalr-action@v1
     with:
       scalr_hostname: "<your-account>.scalr.io"
       scalr_token: ${{ secrets.SCALR_TOKEN }}
       scalr_workspace: ws-abcdef123456
+      iac_platform: tofu
       binary_output: true
 
   - run: tofu init
@@ -76,11 +79,11 @@ The action supports the following inputs:
 
 - `scalr_token` - The API token used to authenticate with the credentials block of the Terraform CLI config file.
 
-- `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to auto-detect Terraform version.
+- `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to autodetect the OpenTofu/Terraform version.
 
 - `iac_platform` - Specifies if you want to use the `tofu` or `terraform` platform. Default is `terraform`.
 
-- `binary_version` - The version of OpenTofu/Terraform CLI. This must match the version set in your Scalr Workspace. It will be autodetected if left empty and workspace is set.
+- `binary_version` - The concrete version of OpenTofu/Terraform CLI to install. Leave it empty and set `scalr_workspace` to autodetect from Scalr. Do not set it to `auto` or `latest`.
 
 - `binary_wrapper` - Whether or not to install a wrapper to wrap calls of the `tofu/terraform` binary and expose its STDOUT, STDERR, and exit code
 
