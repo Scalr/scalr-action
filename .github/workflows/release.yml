@@ -39,7 +39,7 @@ jobs:
       - name: Run tests
         run: bun run test
 
-      - name: Generate unified release files with ncc
+      - name: Build dist files with Bun
         run: bun run build
 
       - name: Normalize generated wrapper permissions
