@@ -22,6 +22,7 @@ Supported on the following GitHub Actions runners\:
 
 If manually specifying an OpenTofu/Terraform version, provide a concrete version and make sure it matches the version you expect to use.
 To autodetect the version from Scalr, leave `binary_version` empty and set `scalr_workspace`.
+As an alternative to `scalr_workspace`, you can provide both `scalr_environment_name` and `scalr_workspace_name` to resolve the workspace ID by name.
 Values such as `auto` and `latest` are not valid explicit `binary_version` values.
 You also need to generate a [Scalr API Token](https://docs.scalr.io/docs/creating-a-workspace-1#cli--workspace) and store it as a [GitHub Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets).
 
@@ -34,7 +35,8 @@ steps:
     with:
       scalr_hostname: "<your-account>.scalr.io"
       scalr_token: ${{ secrets.SCALR_TOKEN }}
-      scalr_workspace: ws-abcdef123456
+      scalr_environment_name: production
+      scalr_workspace_name: network
       iac_platform: tofu
       binary_output: true
 
@@ -81,9 +83,15 @@ The action supports the following inputs:
 
 - `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to autodetect the OpenTofu/Terraform version.
 
+- `scalr_workspace_name` - The Scalr workspace name to resolve before the action runs. Must be used together with `scalr_environment_name`.
+
+- `scalr_environment_name` - The Scalr environment name that contains `scalr_workspace_name`. Must be used together with `scalr_workspace_name`.
+
 - `iac_platform` - Specifies if you want to use the `tofu` or `terraform` platform. Default is `terraform`.
 
 - `binary_version` - The concrete version of OpenTofu/Terraform CLI to install. Leave it empty and set `scalr_workspace` to autodetect from Scalr. Do not set it to `auto` or `latest`.
+
+Do not set `scalr_workspace` together with `scalr_workspace_name` or `scalr_environment_name`. Use either the workspace ID or the name-based pair.
 
 - `binary_wrapper` - Whether or not to install a wrapper to wrap calls of the `tofu/terraform` binary and expose its STDOUT, STDERR, and exit code
 

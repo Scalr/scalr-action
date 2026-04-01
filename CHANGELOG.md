@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0
+
+### Added
+- Added support for resolving a workspace by `scalr_environment_name` and `scalr_workspace_name`, so workflows can use human-readable Scalr identifiers instead of opaque workspace IDs.
+
+### Fixed
+- Added validation for conflicting workspace selectors so workflows fail clearly when `scalr_workspace` is combined with the new name-based inputs or when only one name-based input is provided.
+
 ## 1.6.1
 
 ### Fixed

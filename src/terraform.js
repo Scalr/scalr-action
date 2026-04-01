@@ -16,6 +16,7 @@ const {
   isAutoVersion,
   normalizeIacPlatform,
 } = require("./terraform-version");
+const { resolveWorkspaceIdByName } = require("./workspace");
 
 function getPlatform(osModule = os) {
   return { win32: "windows" }[osModule.platform()] || osModule.platform();
@@ -65,6 +66,28 @@ function validateRequestedVersion(version) {
   }
 }
 
+function validateWorkspaceInputs({
+  workspace,
+  workspaceName,
+  environmentName,
+}) {
+  const hasWorkspaceId = Boolean(workspace);
+  const hasWorkspaceName = Boolean(workspaceName);
+  const hasEnvironmentName = Boolean(environmentName);
+
+  if (hasWorkspaceId && (hasWorkspaceName || hasEnvironmentName)) {
+    throw new Error(
+      "Provide either scalr_workspace or both scalr_workspace_name and scalr_environment_name, not both"
+    );
+  }
+
+  if (hasWorkspaceName !== hasEnvironmentName) {
+    throw new Error(
+      "Provide both scalr_workspace_name and scalr_environment_name to resolve a workspace by name"
+    );
+  }
+}
+
 function getWrapperSourcePath(pathModule = path, entryFilePath) {
   const resolvedEntryFilePath =
     entryFilePath || process.argv[1] || pathModule.resolve(process.cwd(), "src", "terraform.js");
@@ -85,6 +108,7 @@ async function runAction({
   env = process.env,
   fetchImpl = fetch,
   detectWorkspaceVersionImpl = detectWorkspaceVersion,
+  resolveWorkspaceIdByNameImpl = resolveWorkspaceIdByName,
   runCommandImpl = runCommand,
   buildOpenTofuDownloadUrlImpl = buildOpenTofuDownloadUrl,
   buildScalrCliDownloadUrlImpl = buildScalrCliDownloadUrl,
@@ -93,7 +117,9 @@ async function runAction({
 } = {}) {
   const hostname = coreModule.getInput("scalr_hostname", { required: true });
   const token = coreModule.getInput("scalr_token", { required: true });
-  const workspace = coreModule.getInput("scalr_workspace");
+  let workspace = coreModule.getInput("scalr_workspace");
+  const workspaceName = coreModule.getInput("scalr_workspace_name");
+  const environmentName = coreModule.getInput("scalr_environment_name");
 
   let iacPlatform = normalizeIacPlatform(coreModule.getInput("iac_platform"));
   let version =
@@ -106,6 +132,7 @@ async function runAction({
     coreModule.getInput("binary_output") || coreModule.getInput("terraform_output");
 
   validateRequestedVersion(version);
+  validateWorkspaceInputs({ workspace, workspaceName, environmentName });
 
   const platform = getPlatform(osModule);
   const arch = getArch(osModule);
@@ -139,6 +166,20 @@ async function runAction({
     scalrConfigPath,
     `{ "hostname": "${hostname}", "token": "${token}" }`
   );
+
+  if (workspaceName && environmentName) {
+    coreModule.info(
+      `Resolving workspace ID for workspace '${workspaceName}' in environment '${environmentName}'`
+    );
+    workspace = await resolveWorkspaceIdByNameImpl({
+      environmentName,
+      spawnCommand: runCommandImpl,
+      workspaceName,
+    });
+    coreModule.info(
+      `Resolved workspace '${workspaceName}' in environment '${environmentName}' to ${workspace}`
+    );
+  }
 
   if (!version) {
     coreModule.info(
@@ -233,6 +274,7 @@ async function runAction({
     scalrCliVersion,
     terraformRcPath,
     version,
+    workspace,
     wrapper,
   };
 }
@@ -259,5 +301,6 @@ module.exports = {
   main,
   resolveLatestScalrCliVersion,
   runAction,
+  validateWorkspaceInputs,
   validateRequestedVersion,
 };
