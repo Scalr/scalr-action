@@ -271,9 +271,10 @@ test("getWrapperSourcePath resolves source and bundled wrapper locations", () =>
     getWrapperSourcePath(
       {
         basename: (value) => value.split("/").pop(),
+        dirname: (value) => value.split("/").slice(0, -1).join("/"),
         resolve: (...parts) => parts.join("/"),
       },
-      "/workspace/src"
+      "/workspace/src/terraform.js"
     ),
     /\/workspace\/src\/wrapper\.js$/
   );
@@ -282,9 +283,10 @@ test("getWrapperSourcePath resolves source and bundled wrapper locations", () =>
     getWrapperSourcePath(
       {
         basename: (value) => value.split("/").pop(),
+        dirname: (value) => value.split("/").slice(0, -1).join("/"),
         resolve: (...parts) => parts.join("/"),
       },
-      "/workspace/dist/terraform"
+      "/workspace/dist/terraform/index.js"
     ),
     /\/workspace\/dist\/terraform\/\.\.\/wrapper\/index\.js$/
   );
