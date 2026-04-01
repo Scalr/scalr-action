@@ -51,13 +51,13 @@ jobs:
       - name: Verify generated files are committed
         shell: bash
         run: |
-          git diff --ignore-space-at-eol --exit-code -- dist bun.lock || {
+          if ! git diff --ignore-space-at-eol --exit-code -- dist bun.lock; then
             echo "Generated files are out of date. Commit dist/ and bun.lock before releasing."
             echo
             echo "Generated diff:"
-            git diff -- dist bun.lock
+            git diff -- dist bun.lock || true
             exit 1
-          }
+          fi
 
       - name: Fetch tags
         shell: bash
