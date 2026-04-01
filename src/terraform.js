@@ -43,9 +43,18 @@ async function resolveLatestScalrCliVersion(fetchImpl = fetch) {
 function getTerraformRcPath({ env = process.env, platform, iacPlatform }) {
   if (env.TF_CLI_CONFIG_FILE) return env.TF_CLI_CONFIG_FILE;
 
+  const homeDir = getHomeDir({ env, osModule: os });
+
   return platform === "windows"
-    ? `${env.APPDATA}/${iacPlatform}.rc`
-    : `${env.HOME}/.${iacPlatform}rc`;
+    ? `${env.APPDATA || homeDir}/${iacPlatform}.rc`
+    : `${homeDir}/.${iacPlatform}rc`;
+}
+
+function getHomeDir({ env = process.env, osModule = os }) {
+  if (env.HOME) return env.HOME;
+  if (env.USERPROFILE) return env.USERPROFILE;
+  if (env.HOMEDRIVE && env.HOMEPATH) return `${env.HOMEDRIVE}${env.HOMEPATH}`;
+  return osModule.homedir();
 }
 
 function validateRequestedVersion(version) {
@@ -122,7 +131,8 @@ async function runAction({
   coreModule.info("Add Scalr CLI to PATH");
   coreModule.addPath(scalrCliPath);
 
-  const scalrConfigPath = `${env.HOME}/.scalr/scalr.conf`;
+  const homeDir = getHomeDir({ env, osModule });
+  const scalrConfigPath = `${homeDir}/.scalr/scalr.conf`;
   coreModule.info(`Generating Scalr CLI credentials file at ${scalrConfigPath}`);
   await ioModule.mkdirP(pathModule.dirname(scalrConfigPath));
   await fsModule.writeFile(
@@ -244,6 +254,7 @@ if (require.main === module) {
 
 module.exports = {
   getTerraformRcPath,
+  getHomeDir,
   getWrapperSourcePath,
   main,
   resolveLatestScalrCliVersion,

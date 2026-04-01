@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  getHomeDir,
   getTerraformRcPath,
   getWrapperSourcePath,
   main,
@@ -218,6 +219,47 @@ test("runAction autodetects Terraform version and installs wrapper using custom 
   assert.deepEqual(createdDirs, ["/tmp/home/.scalr", "/tmp"]);
 });
 
+test("runAction uses USERPROFILE for Scalr config on Windows when HOME is unset", async () => {
+  const coreModule = createCore({
+    binary_output: "false",
+    binary_version: "1.4.7",
+    iac_platform: "terraform",
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "secret",
+  });
+  const toolcacheModule = createToolcache();
+  const fsModule = createFs();
+  const createdDirs = [];
+
+  const result = await runAction({
+    coreModule,
+    env: {
+      APPDATA: "C:\\Users\\runner\\AppData\\Roaming",
+      USERPROFILE: "C:\\Users\\runneradmin",
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule,
+    ioModule: {
+      cp: async () => {},
+      mkdirP: async (dir) => createdDirs.push(dir),
+      mv: async () => {},
+    },
+    osModule: {
+      arch: () => "x64",
+      homedir: () => "C:\\fallback-home",
+      platform: () => "win32",
+    },
+    toolcacheModule,
+  });
+
+  assert.equal(result.terraformRcPath, "C:\\Users\\runner\\AppData\\Roaming/terraform.rc");
+  assert.deepEqual(createdDirs, ["C:\\Users\\runneradmin/.scalr", "C:\\Users\\runner\\AppData\\Roaming"]);
+  assert.equal(fsModule.writes[0].file, "C:\\Users\\runneradmin/.scalr/scalr.conf");
+});
+
 test("main reports missing workspace when autodetect is requested", async () => {
   const coreModule = createCore({
     scalr_hostname: "example.scalr.io",
@@ -264,6 +306,37 @@ test("getTerraformRcPath uses platform defaults when TF_CLI_CONFIG_FILE is unset
       platform: "linux",
     }),
     "/home/runner/.tofurc"
+  );
+});
+
+test("getHomeDir falls back across common runner env vars", () => {
+  assert.equal(
+    getHomeDir({
+      env: { HOME: "/home/runner" },
+      osModule: { homedir: () => "/fallback" },
+    }),
+    "/home/runner"
+  );
+  assert.equal(
+    getHomeDir({
+      env: { USERPROFILE: "C:\\Users\\runneradmin" },
+      osModule: { homedir: () => "C:\\fallback" },
+    }),
+    "C:\\Users\\runneradmin"
+  );
+  assert.equal(
+    getHomeDir({
+      env: { HOMEDRIVE: "C:", HOMEPATH: "\\Users\\runneradmin" },
+      osModule: { homedir: () => "C:\\fallback" },
+    }),
+    "C:\\Users\\runneradmin"
+  );
+  assert.equal(
+    getHomeDir({
+      env: {},
+      osModule: { homedir: () => "/fallback" },
+    }),
+    "/fallback"
   );
 });
 
