@@ -51,8 +51,11 @@ jobs:
       - name: Verify generated files are committed
         shell: bash
         run: |
-          git diff --exit-code -- dist bun.lock || {
+          git diff --ignore-space-at-eol --exit-code -- dist bun.lock || {
             echo "Generated files are out of date. Commit dist/ and bun.lock before releasing."
+            echo
+            echo "Generated diff:"
+            git diff -- dist bun.lock
             exit 1
           }
 
