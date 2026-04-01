@@ -39,7 +39,7 @@ jobs:
       - name: Run tests
         run: bun run test
 
-      - name: Build dist files with Bun
+      - name: Build dist files
         run: bun run build
 
       - name: Normalize generated wrapper permissions
