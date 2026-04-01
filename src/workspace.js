@@ -9,6 +9,10 @@ function getItems(payload) {
   return [];
 }
 
+function getEnvironmentId(item) {
+  return normalizeValue(item?.id ?? item?.environment?.id);
+}
+
 function getWorkspaceId(item) {
   return normalizeValue(item?.id ?? item?.workspace?.id);
 }
@@ -17,23 +21,61 @@ function getWorkspaceName(item) {
   return normalizeValue(item?.attributes?.name ?? item?.name);
 }
 
+function getName(item) {
+  return normalizeValue(item?.attributes?.name ?? item?.name);
+}
+
 function getEnvironmentName(item) {
   return normalizeValue(
     item?.environment?.name ??
       item?.attributes?.["environment-name"] ??
-      item?.["environment-name"]
+      item?.["environment-name"] ??
+      getName(item)
   );
 }
 
-function filterWorkspaceMatches(items, workspaceName, environmentName) {
+function filterByName(items, name, getItemName) {
   return items.filter((item) => {
-    const itemWorkspaceName = getWorkspaceName(item);
-    const itemEnvironmentName = getEnvironmentName(item);
-
-    if (itemWorkspaceName && itemWorkspaceName !== workspaceName) return false;
-    if (itemEnvironmentName && itemEnvironmentName !== environmentName) return false;
-    return true;
+    const itemName = getItemName(item);
+    if (!itemName) return true;
+    return itemName === name;
   });
+}
+
+async function resolveEnvironmentIdByName({ environmentName, spawnCommand }) {
+  const normalizedEnvironmentName = normalizeValue(environmentName);
+  const payload = await runScalrJsonCommand(spawnCommand, [
+    "list-environments",
+    `-filter-name=${normalizedEnvironmentName}`,
+  ]);
+
+  const environments = getItems(payload);
+  const matchingEnvironments = filterByName(
+    environments,
+    normalizedEnvironmentName,
+    getEnvironmentName
+  );
+  const candidates =
+    matchingEnvironments.length > 0 ? matchingEnvironments : environments;
+
+  if (candidates.length === 0) {
+    throw new Error(`No environment named '${normalizedEnvironmentName}' found`);
+  }
+
+  if (candidates.length > 1) {
+    throw new Error(
+      `Multiple environments named '${normalizedEnvironmentName}' found; use scalr_workspace instead`
+    );
+  }
+
+  const environmentId = getEnvironmentId(candidates[0]);
+  if (!environmentId) {
+    throw new Error(
+      `Unable to resolve ID for environment '${normalizedEnvironmentName}'`
+    );
+  }
+
+  return environmentId;
 }
 
 function formatCommandError(error) {
@@ -62,18 +104,21 @@ async function resolveWorkspaceIdByName({
 }) {
   const normalizedWorkspaceName = normalizeValue(workspaceName);
   const normalizedEnvironmentName = normalizeValue(environmentName);
+  const environmentId = await resolveEnvironmentIdByName({
+    environmentName: normalizedEnvironmentName,
+    spawnCommand,
+  });
 
   const payload = await runScalrJsonCommand(spawnCommand, [
     "get-workspaces",
-    `-filter-environment-name=${normalizedEnvironmentName}`,
-    `-filter-name=${normalizedWorkspaceName}`,
+    `-filter-environment=${environmentId}`,
   ]);
 
   const workspaces = getItems(payload);
-  const matchingWorkspaces = filterWorkspaceMatches(
+  const matchingWorkspaces = filterByName(
     workspaces,
     normalizedWorkspaceName,
-    normalizedEnvironmentName
+    getWorkspaceName
   );
   const candidates = matchingWorkspaces.length > 0 ? matchingWorkspaces : workspaces;
 
@@ -100,9 +145,11 @@ async function resolveWorkspaceIdByName({
 }
 
 module.exports = {
+  getEnvironmentId,
   getEnvironmentName,
   getItems,
   getWorkspaceId,
   getWorkspaceName,
+  resolveEnvironmentIdByName,
   resolveWorkspaceIdByName,
 };
