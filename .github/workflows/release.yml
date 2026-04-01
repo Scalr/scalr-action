@@ -42,6 +42,12 @@ jobs:
       - name: Generate unified release files with ncc
         run: bun run build
 
+      - name: Normalize generated wrapper permissions
+        shell: bash
+        run: |
+          chmod +x dist/wrapper/index.js
+          git update-index --chmod=+x dist/wrapper/index.js
+
       - name: Verify generated files are committed
         shell: bash
         run: |
