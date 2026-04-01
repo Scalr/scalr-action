@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.1
+
+### Fixed
+- Fixed Windows runner home directory detection so the action creates `scalr.conf` and Terraform/OpenTofu CLI config files correctly when `HOME` is unset.
+- Fixed Windows autodetect failures caused by the Scalr CLI being left unconfigured on hosted Windows runners.
+
+### Changed
+- Switched bundled artifact builds back to deterministic `ncc` output while keeping Bun as the package manager and workflow runtime.
+- Aligned the release verification workflow with committed `dist/` artifacts so release builds no longer fail on generated bundle formatting differences.
+
 ## 1.6.0
 
 ### Fixed
