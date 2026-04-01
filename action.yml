@@ -9,7 +9,13 @@ inputs:
     description: "The API token to use."
     required: true
   scalr_workspace:
-    description: "The Scalr workspace ID you plan on working in. This is required if you want to autodetect Terraform version."
+    description: "The Scalr workspace ID you plan on working in. This is required if you want to autodetect the OpenTofu/Terraform version unless you provide scalr_workspace_name and scalr_environment_name instead."
+    required: false
+  scalr_workspace_name:
+    description: "The Scalr workspace name to resolve. Must be used together with scalr_environment_name."
+    required: false
+  scalr_environment_name:
+    description: "The Scalr environment name that contains scalr_workspace_name. Must be used together with scalr_workspace_name."
     required: false
   iac_platform:
     description: "Specifies if you want to use the tofu or terraform platform."

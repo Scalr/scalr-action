@@ -8,6 +8,7 @@ const {
   main,
   resolveLatestScalrCliVersion,
   runAction,
+  validateWorkspaceInputs,
   validateRequestedVersion,
 } = require("../terraform");
 
@@ -82,6 +83,36 @@ test("validateRequestedVersion rejects auto-like explicit versions", () => {
   assert.doesNotThrow(() => validateRequestedVersion("1.4.7"));
 });
 
+test("validateWorkspaceInputs rejects conflicting or incomplete workspace selectors", () => {
+  assert.throws(
+    () =>
+      validateWorkspaceInputs({
+        environmentName: "prod",
+        workspace: "ws-123",
+        workspaceName: "network",
+      }),
+    /Provide either scalr_workspace or both scalr_workspace_name and scalr_environment_name, not both/
+  );
+
+  assert.throws(
+    () =>
+      validateWorkspaceInputs({
+        environmentName: "",
+        workspace: "",
+        workspaceName: "network",
+      }),
+    /Provide both scalr_workspace_name and scalr_environment_name/
+  );
+
+  assert.doesNotThrow(() =>
+    validateWorkspaceInputs({
+      environmentName: "",
+      workspace: "",
+      workspaceName: "",
+    })
+  );
+});
+
 test("runAction skips autodetect when explicit binary_version is provided", async () => {
   const coreModule = createCore({
     binary_output: "false",
@@ -135,6 +166,51 @@ test("runAction skips autodetect when explicit binary_version is provided", asyn
     { name: "TERRAFORM_OUTPUT", value: "false" },
   ]);
   assert.equal(fsModule.writes.length, 2);
+});
+
+test("runAction resolves workspace id from environment and workspace names", async () => {
+  const coreModule = createCore({
+    scalr_environment_name: "prod",
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "secret",
+    scalr_workspace_name: "network",
+  });
+  const toolcacheModule = createToolcache();
+  const fsModule = createFs();
+  let detectArgs;
+
+  const result = await runAction({
+    coreModule,
+    detectWorkspaceVersionImpl: async (args) => {
+      detectArgs = args;
+      return { iacPlatform: "terraform", version: "1.4.7" };
+    },
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule,
+    ioModule: {
+      cp: async () => {},
+      mkdirP: async () => {},
+      mv: async () => {},
+    },
+    osModule: {
+      arch: () => "x64",
+      platform: () => "linux",
+    },
+    resolveWorkspaceIdByNameImpl: async ({ environmentName, workspaceName }) => {
+      assert.equal(environmentName, "prod");
+      assert.equal(workspaceName, "network");
+      return "ws-lookup";
+    },
+    toolcacheModule,
+  });
+
+  assert.equal(result.workspace, "ws-lookup");
+  assert.equal(detectArgs.workspace, "ws-lookup");
+  assert.equal(typeof detectArgs.spawnCommand, "function");
 });
 
 test("main reports a clear error when binary_version is set to auto", async () => {
@@ -287,6 +363,48 @@ test("main reports missing workspace when autodetect is requested", async () => 
 
   assert.deepEqual(coreModule.failures, [
     "Please specify workspace to autodetect OpenTofu/Terraform version",
+  ]);
+});
+
+test("main reports a clear error when workspace id and name inputs are both provided", async () => {
+  const coreModule = createCore({
+    scalr_environment_name: "prod",
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "secret",
+    scalr_workspace: "ws-123",
+    scalr_workspace_name: "network",
+  });
+
+  await main({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => {
+      throw new Error("fetch should not run");
+    },
+  });
+
+  assert.deepEqual(coreModule.failures, [
+    "Provide either scalr_workspace or both scalr_workspace_name and scalr_environment_name, not both",
+  ]);
+});
+
+test("main reports a clear error when only one workspace name input is provided", async () => {
+  const coreModule = createCore({
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "secret",
+    scalr_workspace_name: "network",
+  });
+
+  await main({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => {
+      throw new Error("fetch should not run");
+    },
+  });
+
+  assert.deepEqual(coreModule.failures, [
+    "Provide both scalr_workspace_name and scalr_environment_name to resolve a workspace by name",
   ]);
 });
 
