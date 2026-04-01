@@ -1,0 +1,129 @@
+name: PR Integration Test
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to test. Defaults to the current SHA."
+        required: false
+        type: string
+      binary_version:
+        description: "Optional explicit Terraform/OpenTofu version to install. If set, skips workspace autodetect."
+        required: false
+        type: string
+      iac_platform:
+        description: "Required when binary_version is set."
+        required: false
+        type: choice
+        options:
+          - terraform
+          - tofu
+      scalr_hostname:
+        description: "Scalr hostname. Defaults to repo variable SCALR_HOSTNAME."
+        required: false
+        type: string
+      scalr_workspace:
+        description: "Workspace ID. Defaults to repo variable SCALR_WORKSPACE."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Integration Test
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Resolve workflow inputs
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "WORKFLOW_REF=${{ github.event.inputs.ref || github.sha }}" >> "$GITHUB_ENV"
+            echo "BINARY_VERSION=${{ github.event.inputs.binary_version }}" >> "$GITHUB_ENV"
+            echo "IAC_PLATFORM=${{ github.event.inputs.iac_platform }}" >> "$GITHUB_ENV"
+            echo "SCALR_HOSTNAME=${{ github.event.inputs.scalr_hostname || vars.SCALR_HOSTNAME }}" >> "$GITHUB_ENV"
+            echo "SCALR_WORKSPACE=${{ github.event.inputs.scalr_workspace || vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
+          else
+            echo "WORKFLOW_REF=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+            echo "BINARY_VERSION=" >> "$GITHUB_ENV"
+            echo "IAC_PLATFORM=" >> "$GITHUB_ENV"
+            echo "SCALR_HOSTNAME=${{ vars.SCALR_HOSTNAME }}" >> "$GITHUB_ENV"
+            echo "SCALR_WORKSPACE=${{ vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.WORKFLOW_REF }}
+
+      - name: Validate configuration
+        shell: bash
+        env:
+          SCALR_API_TOKEN: ${{ secrets.SCALR_API_TOKEN }}
+        run: |
+          test -n "$SCALR_API_TOKEN" || { echo "Missing secret SCALR_API_TOKEN"; exit 1; }
+          test -n "$SCALR_HOSTNAME" || { echo "Set input scalr_hostname or repo variable SCALR_HOSTNAME"; exit 1; }
+          if [ -n "$BINARY_VERSION" ]; then
+            test -n "$IAC_PLATFORM" || { echo "Set input iac_platform when binary_version is provided"; exit 1; }
+          else
+            test -n "$SCALR_WORKSPACE" || { echo "Set input scalr_workspace or repo variable SCALR_WORKSPACE"; exit 1; }
+          fi
+
+      - name: Show test target
+        shell: bash
+        run: |
+          echo "ref=$WORKFLOW_REF"
+          echo "binary_version=${BINARY_VERSION:-<autodetect>}"
+          echo "iac_platform=${IAC_PLATFORM:-<autodetect>}"
+          echo "scalr_hostname=$SCALR_HOSTNAME"
+          echo "scalr_workspace=${SCALR_WORKSPACE:-<not set>}"
+
+      - name: Configure Scalr
+        uses: ./
+        with:
+          binary_version: ${{ env.BINARY_VERSION }}
+          iac_platform: ${{ env.IAC_PLATFORM }}
+          scalr_hostname: ${{ env.SCALR_HOSTNAME }}
+          scalr_token: ${{ secrets.SCALR_API_TOKEN }}
+          scalr_workspace: ${{ env.SCALR_WORKSPACE }}
+
+      - name: Print CLI versions
+        if: always()
+        shell: bash
+        continue-on-error: true
+        run: |
+          command -v scalr >/dev/null && scalr -version || true
+          command -v terraform >/dev/null && terraform -version || true
+          command -v tofu >/dev/null && tofu -version || true
+
+      - name: Dump workspace metadata
+        if: ${{ always() && env.SCALR_WORKSPACE != '' }}
+        shell: bash
+        continue-on-error: true
+        run: |
+          if command -v scalr >/dev/null; then
+            scalr get-workspace -workspace="$SCALR_WORKSPACE"
+          else
+            echo "scalr CLI not available"
+          fi
+
+      - name: Assert expected binary exists
+        if: success()
+        shell: bash
+        run: |
+          if command -v tofu >/dev/null; then
+            tofu -version
+          elif command -v terraform >/dev/null; then
+            terraform -version
+          else
+            echo "Neither tofu nor terraform was installed"
+            exit 1
+          fi

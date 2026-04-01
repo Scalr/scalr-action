@@ -1,152 +1,247 @@
 const os = require("os");
 const fs = require("fs").promises;
 const path = require("path");
-const util = require("util");
-const exec = util.promisify(require("child_process").exec);
-const axios = require("axios");
-const spawn = require("await-spawn");
 
 const core = require("@actions/core");
 const toolcache = require("@actions/tool-cache");
 const io = require("@actions/io");
-const releases = require("@hashicorp/js-releases");
-const { stdout } = require("process");
+const {
+  buildOpenTofuDownloadUrl,
+  buildScalrCliDownloadUrl,
+  buildTerraformDownloadUrl,
+} = require("./download-url");
+const { runCommand } = require("./run-command");
+const {
+  detectWorkspaceVersion,
+  isAutoVersion,
+  normalizeIacPlatform,
+} = require("./terraform-version");
 
-(async () => {
-  try {
-    const hostname = core.getInput("scalr_hostname", { required: true });
-    const token = core.getInput("scalr_token", { required: true });
-    const workspace = core.getInput("scalr_workspace");
+function getPlatform(osModule = os) {
+  return { win32: "windows" }[osModule.platform()] || osModule.platform();
+}
 
-    let iac_platform = core.getInput("iac_platform") || "terraform";
-    if (iac_platform !== "tofu") iac_platform = "terraform";
+function getArch(osModule = os) {
+  return { x32: "386", x64: "amd64" }[osModule.arch()] || osModule.arch();
+}
 
-    let version =
-      core.getInput("binary_version") || core.getInput("terraform_version");
-    const wrapper =
-      core.getInput("binary_wrapper") === "true" ||
-      core.getInput("terraform_wrapper") === "true";
-    const output =
-      core.getInput("binary_output") || core.getInput("terraform_output");
+async function resolveLatestScalrCliVersion(fetchImpl = fetch) {
+  const latest = await fetchImpl(
+    "https://github.com/Scalr/scalr-cli/releases/latest",
+    { method: "HEAD" }
+  );
 
-    const platform = { win32: "windows" }[os.platform()] || os.platform();
-    const arch = { x32: "386", x64: "amd64" }[os.arch()] || os.arch();
-
-    core.info("Fetch latest version of Scalr CLI");
-    let latest = await axios.head(
-      "https://github.com/scalr/scalr-cli/releases/latest"
+  if (!latest.ok) {
+    throw new Error(
+      `Failed to resolve latest Scalr CLI version: ${latest.status} ${latest.statusText}`
     );
-    let ver = new URL(latest.request.res.responseUrl).pathname
-      .split("/")
-      .pop()
-      .replace("v", "");
-    let url = `https://github.com/Scalr/scalr-cli/releases/download/v${ver}/scalr-cli_${ver}_${platform}_${arch}.zip`;
-
-    core.info(`Downloading compressed Scalr CLI binary from ${url}`);
-    const zip2 = await toolcache.downloadTool(url);
-    if (!zip2) throw new Error("Failed to download Scalr CLI");
-
-    core.info("Decompressing Scalr CLI binary");
-    const cli2 = await toolcache.extractZip(zip2);
-    if (!cli2) throw new Error("Failed to decompress Scalr CLI");
-
-    core.info("Add Scalr CLI to PATH");
-    core.addPath(cli2);
-
-    let conf = `${process.env.HOME}/.scalr/scalr.conf`;
-    core.info(`Generating Scalr CLI credentials file at ${conf}`);
-    await io.mkdirP(path.dirname(conf));
-    await fs.writeFile(
-      conf,
-      `{ \"hostname\": \"${hostname}\", \"token\": \"${token}\" }`
-    );
-
-    if (!version) {
-      core.info(
-        "No OpenTofu/Terraform version specified. Will try to autodetect using Scalr CLI."
-      );
-      if (!workspace)
-        throw new Error(
-          "Please specify workspace to autodetect OpenTofu/Terraform version"
-        );
-
-      let data;
-      try {
-        core.info(
-          `Fetching OpenTofu/Terraform version for workspace ${workspace}`
-        );
-        data = await spawn("scalr", [
-          "get-workspace",
-          "-workspace=" + workspace,
-        ]);
-
-        data = JSON.parse(data.toString());
-
-        iac_platform = data["iac-platform"];
-        version = data["terraform-version"];
-      } catch (e) {
-        throw new Error("Unable to find specified workspace");
-      }
-    }
-
-    let download_url = "";
-    if (iac_platform === "terraform") {
-      core.info(`Preparing to download Terraform version ${version}`);
-      const release = await releases.getRelease("terraform", version);
-      const build = release.getBuild(platform, arch);
-      if (!build) throw new Error("No matching version found");
-      download_url = build.url;
-    } else {
-      core.info(`Preparing to download OpenTofu version ${version}`);
-      download_url = `https://github.com/opentofu/opentofu/releases/download/v${version}/tofu_${version}_${platform}_${arch}.zip`;
-    }
-
-    core.info(
-      `Downloading compressed tofu/terraform binary from ${download_url}`
-    );
-    const zip = await toolcache.downloadTool(download_url);
-    if (!zip) throw new Error("Failed to download tofu/terraform");
-
-    core.info("Decompressing OpenTofu/Terraform binary");
-    const cli = await toolcache.extractZip(zip);
-    if (!cli) throw new Error("Failed to decompress tofu/terraform");
-
-    core.info("Add tofu/terraform to PATH");
-    core.addPath(cli);
-
-    if (wrapper) {
-      core.info("Rename tofu/terraform binary to make way for the wrapper");
-      const exeSuffix = os.platform().startsWith("win") ? ".exe" : "";
-      let source = [cli, `${iac_platform}${exeSuffix}`].join(path.sep);
-      let target = [cli, `terraform-bin${exeSuffix}`].join(path.sep);
-      await io.mv(source, target);
-
-      core.info(
-        "Install wrapper to forward OpenTofu/Terraform output to future actions"
-      );
-      source = path.resolve(
-        [__dirname, "..", "wrapper", "index.js"].join(path.sep)
-      );
-      target = [cli, iac_platform].join(path.sep);
-      await io.cp(source, target);
-    }
-
-    let rc = process.env.TF_CLI_CONFIG_FILE;
-    if (!rc)
-      rc =
-        platform == "windows"
-          ? `${process.env.APPDATA}/${iac_platform}.rc`
-          : `${process.env.HOME}/.${iac_platform}rc`;
-    core.info(`Generating OpenTofu/Terraform credentials file at ${rc}`);
-    await io.mkdirP(path.dirname(rc));
-    await fs.writeFile(
-      rc,
-      `credentials \"${hostname}\" {\n  token = \"${token}\"\n}`
-    );
-
-    core.exportVariable("TF_IN_AUTOMATION", "TRUE");
-    core.exportVariable("TERRAFORM_OUTPUT", output);
-  } catch (error) {
-    core.setFailed(error.message);
   }
-})();
+
+  return new URL(latest.url).pathname.split("/").pop().replace("v", "");
+}
+
+function getTerraformRcPath({ env = process.env, platform, iacPlatform }) {
+  if (env.TF_CLI_CONFIG_FILE) return env.TF_CLI_CONFIG_FILE;
+
+  return platform === "windows"
+    ? `${env.APPDATA}/${iacPlatform}.rc`
+    : `${env.HOME}/.${iacPlatform}rc`;
+}
+
+function validateRequestedVersion(version) {
+  if (version && isAutoVersion(version)) {
+    throw new Error(
+      "binary_version does not support auto/latest values; leave it empty and provide scalr_workspace for autodetect"
+    );
+  }
+}
+
+function getWrapperSourcePath(pathModule = path, dirname = __dirname) {
+  return pathModule.basename(dirname) === "src"
+    ? pathModule.resolve(dirname, "wrapper.js")
+    : pathModule.resolve(dirname, "..", "wrapper", "index.js");
+}
+
+async function runAction({
+  coreModule = core,
+  toolcacheModule = toolcache,
+  ioModule = io,
+  fsModule = fs,
+  pathModule = path,
+  osModule = os,
+  env = process.env,
+  fetchImpl = fetch,
+  detectWorkspaceVersionImpl = detectWorkspaceVersion,
+  runCommandImpl = runCommand,
+  buildOpenTofuDownloadUrlImpl = buildOpenTofuDownloadUrl,
+  buildScalrCliDownloadUrlImpl = buildScalrCliDownloadUrl,
+  buildTerraformDownloadUrlImpl = buildTerraformDownloadUrl,
+} = {}) {
+  const hostname = coreModule.getInput("scalr_hostname", { required: true });
+  const token = coreModule.getInput("scalr_token", { required: true });
+  const workspace = coreModule.getInput("scalr_workspace");
+
+  let iacPlatform = normalizeIacPlatform(coreModule.getInput("iac_platform"));
+  let version =
+    coreModule.getInput("binary_version") ||
+    coreModule.getInput("terraform_version");
+  const wrapper =
+    coreModule.getInput("binary_wrapper") === "true" ||
+    coreModule.getInput("terraform_wrapper") === "true";
+  const output =
+    coreModule.getInput("binary_output") || coreModule.getInput("terraform_output");
+
+  validateRequestedVersion(version);
+
+  const platform = getPlatform(osModule);
+  const arch = getArch(osModule);
+
+  coreModule.info("Fetch latest version of Scalr CLI");
+  const scalrCliVersion = await resolveLatestScalrCliVersion(fetchImpl);
+  const scalrCliUrl = buildScalrCliDownloadUrlImpl(
+    scalrCliVersion,
+    platform,
+    arch
+  );
+
+  coreModule.info(
+    `Downloading compressed Scalr CLI binary from ${scalrCliUrl}`
+  );
+  const scalrCliArchive = await toolcacheModule.downloadTool(scalrCliUrl);
+  if (!scalrCliArchive) throw new Error("Failed to download Scalr CLI");
+
+  coreModule.info("Decompressing Scalr CLI binary");
+  const scalrCliPath = await toolcacheModule.extractZip(scalrCliArchive);
+  if (!scalrCliPath) throw new Error("Failed to decompress Scalr CLI");
+
+  coreModule.info("Add Scalr CLI to PATH");
+  coreModule.addPath(scalrCliPath);
+
+  const scalrConfigPath = `${env.HOME}/.scalr/scalr.conf`;
+  coreModule.info(`Generating Scalr CLI credentials file at ${scalrConfigPath}`);
+  await ioModule.mkdirP(pathModule.dirname(scalrConfigPath));
+  await fsModule.writeFile(
+    scalrConfigPath,
+    `{ "hostname": "${hostname}", "token": "${token}" }`
+  );
+
+  if (!version) {
+    coreModule.info(
+      "No OpenTofu/Terraform version specified. Will try to autodetect using Scalr CLI."
+    );
+
+    if (!workspace) {
+      throw new Error(
+        "Please specify workspace to autodetect OpenTofu/Terraform version"
+      );
+    }
+
+    try {
+      coreModule.info(
+        `Fetching OpenTofu/Terraform version for workspace ${workspace}`
+      );
+      const detected = await detectWorkspaceVersionImpl({
+        workspace,
+        spawnCommand: runCommandImpl,
+      });
+      iacPlatform = detected.iacPlatform;
+      version = detected.version;
+      coreModule.info(`Resolved OpenTofu/Terraform version ${version}`);
+    } catch (error) {
+      throw new Error(
+        `Unable to autodetect OpenTofu/Terraform version: ${error.message}`
+      );
+    }
+  }
+
+  let downloadUrl = "";
+  if (iacPlatform === "terraform") {
+    coreModule.info(`Preparing to download Terraform version ${version}`);
+    downloadUrl = buildTerraformDownloadUrlImpl(version, platform, arch);
+  } else {
+    coreModule.info(`Preparing to download OpenTofu version ${version}`);
+    downloadUrl = buildOpenTofuDownloadUrlImpl(version, platform, arch);
+  }
+
+  coreModule.info(
+    `Downloading compressed tofu/terraform binary from ${downloadUrl}`
+  );
+  const binaryArchive = await toolcacheModule.downloadTool(downloadUrl);
+  if (!binaryArchive) throw new Error("Failed to download tofu/terraform");
+
+  coreModule.info("Decompressing OpenTofu/Terraform binary");
+  const binaryPath = await toolcacheModule.extractZip(binaryArchive);
+  if (!binaryPath) throw new Error("Failed to decompress tofu/terraform");
+
+  coreModule.info("Add tofu/terraform to PATH");
+  coreModule.addPath(binaryPath);
+
+  if (wrapper) {
+    coreModule.info("Rename tofu/terraform binary to make way for the wrapper");
+    const exeSuffix = osModule.platform().startsWith("win") ? ".exe" : "";
+    let source = [binaryPath, `${iacPlatform}${exeSuffix}`].join(pathModule.sep);
+    let target = [binaryPath, `terraform-bin${exeSuffix}`].join(pathModule.sep);
+    await ioModule.mv(source, target);
+
+    coreModule.info(
+      "Install wrapper to forward OpenTofu/Terraform output to future actions"
+    );
+    source = getWrapperSourcePath(pathModule);
+    target = [binaryPath, iacPlatform].join(pathModule.sep);
+    await ioModule.cp(source, target);
+  }
+
+  const terraformRcPath = getTerraformRcPath({
+    env,
+    platform,
+    iacPlatform,
+  });
+  coreModule.info(
+    `Generating OpenTofu/Terraform credentials file at ${terraformRcPath}`
+  );
+  await ioModule.mkdirP(pathModule.dirname(terraformRcPath));
+  await fsModule.writeFile(
+    terraformRcPath,
+    `credentials "${hostname}" {\n  token = "${token}"\n}`
+  );
+
+  coreModule.exportVariable("TF_IN_AUTOMATION", "TRUE");
+  coreModule.exportVariable("TERRAFORM_OUTPUT", output);
+
+  return {
+    arch,
+    downloadUrl,
+    iacPlatform,
+    platform,
+    scalrCliPath,
+    scalrCliUrl,
+    scalrCliVersion,
+    terraformRcPath,
+    version,
+    wrapper,
+  };
+}
+
+async function main(options = {}) {
+  const coreModule = options.coreModule || core;
+
+  try {
+    return await runAction({ ...options, coreModule });
+  } catch (error) {
+    coreModule.setFailed(error.message);
+    return null;
+  }
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  getTerraformRcPath,
+  getWrapperSourcePath,
+  main,
+  resolveLatestScalrCliVersion,
+  runAction,
+  validateRequestedVersion,
+};

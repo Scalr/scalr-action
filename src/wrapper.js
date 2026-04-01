@@ -1,45 +1,90 @@
 #!/usr/bin/env node
 
-const core = require('@actions/core');
-const cp = require('child_process');
+const core = require("@actions/core");
+const cp = require("child_process");
 
-let stderr = ''
-let stdout = ''
+function shouldCollectTerraformOutputs({ code, terraformOutput, argv }) {
+  if (code) return false;
+  if (String(terraformOutput || "").toLowerCase() !== "true") return false;
 
-const child = cp.spawn('terraform-bin', process.argv.slice(2))
+  return argv[0] === "apply" || argv[1] === "apply";
+}
 
-child.on('exit', function (code, signal) {
-    core.setOutput('stdout', stdout)
-    core.setOutput('stderr', stderr)
-    core.setOutput('exitcode', code)
+function setCommandOutputs(coreModule, stdout, stderr, code) {
+  coreModule.setOutput("stdout", stdout);
+  coreModule.setOutput("stderr", stderr);
+  coreModule.setOutput("exitcode", code);
+}
 
-    if (code || !JSON.parse(process.env.TERRAFORM_OUTPUT.toLowerCase()) || (process.argv[2] != 'apply' && process.argv[3] != 'apply')) process.exit(code);
+function logChunk(consoleModule, chunk) {
+  consoleModule.log(chunk.toString().trim());
+}
 
-    //Run a terraform output to catch outputs
-    cp.exec('terraform-bin output -json', (error2, stdout2, stderr2) => {
-        if (error2) return;
-        
-        let data = JSON.parse(stdout2)
+function runWrapper({
+  coreModule = core,
+  cpModule = cp,
+  argv = process.argv.slice(2),
+  env = process.env,
+  consoleModule = console,
+  exit = process.exit.bind(process),
+} = {}) {
+  let stderr = "";
+  let stdout = "";
 
-        for (var prop in data) {
-            core.setOutput(prop, data[prop].value)
-        }
+  const child = cpModule.spawn("terraform-bin", argv);
 
-        process.exit(0)
+  child.on("exit", function (code) {
+    setCommandOutputs(coreModule, stdout, stderr, code);
+
+    if (
+      !shouldCollectTerraformOutputs({
+        code,
+        terraformOutput: env.TERRAFORM_OUTPUT,
+        argv,
+      })
+    ) {
+      exit(code);
+      return;
+    }
+
+    cpModule.exec("terraform-bin output -json", (error, outputJson) => {
+      if (error) {
+        exit(code || 0);
+        return;
+      }
+
+      const data = JSON.parse(outputJson);
+      for (const prop in data) {
+        coreModule.setOutput(prop, data[prop].value);
+      }
+
+      exit(0);
     });
-});
+  });
 
-child.on('error', function () {
-    core.setFailed('Unable to find terraform-bin in PATH')
-});
+  child.on("error", function () {
+    coreModule.setFailed("Unable to find terraform-bin in PATH");
+  });
 
-child.stdout.on('data', (data) => {
-    console.log(data.toString().trim())
-    stdout += data
-});
-  
-child.stderr.on('data', (data) => {
-    console.log(data.toString().trim())
-    stderr += data    
-});
+  child.stdout.on("data", (data) => {
+    logChunk(consoleModule, data);
+    stdout += data;
+  });
 
+  child.stderr.on("data", (data) => {
+    logChunk(consoleModule, data);
+    stderr += data;
+  });
+
+  return child;
+}
+
+if (require.main === module) {
+  runWrapper();
+}
+
+module.exports = {
+  runWrapper,
+  setCommandOutputs,
+  shouldCollectTerraformOutputs,
+};
