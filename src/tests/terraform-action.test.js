@@ -177,6 +177,7 @@ test("runAction autodetects Terraform version and installs wrapper using custom 
       assert.equal(typeof spawnCommand, "function");
       return { iacPlatform: "terraform", version: "1.4.7" };
     },
+    entryFilePath: "/workspace/src/terraform.js",
     env: {
       HOME: "/tmp/home",
       TF_CLI_CONFIG_FILE: "/tmp/custom.tfrc",

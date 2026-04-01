@@ -56,8 +56,10 @@ function validateRequestedVersion(version) {
   }
 }
 
-function getWrapperSourcePath(pathModule = path, entryFilePath = __filename) {
-  const entryDir = pathModule.dirname(entryFilePath);
+function getWrapperSourcePath(pathModule = path, entryFilePath) {
+  const resolvedEntryFilePath =
+    entryFilePath || process.argv[1] || pathModule.resolve(process.cwd(), "src", "terraform.js");
+  const entryDir = pathModule.dirname(resolvedEntryFilePath);
 
   return pathModule.basename(entryDir) === "src"
     ? pathModule.resolve(entryDir, "wrapper.js")
@@ -78,6 +80,7 @@ async function runAction({
   buildOpenTofuDownloadUrlImpl = buildOpenTofuDownloadUrl,
   buildScalrCliDownloadUrlImpl = buildScalrCliDownloadUrl,
   buildTerraformDownloadUrlImpl = buildTerraformDownloadUrl,
+  entryFilePath,
 } = {}) {
   const hostname = coreModule.getInput("scalr_hostname", { required: true });
   const token = coreModule.getInput("scalr_token", { required: true });
@@ -188,10 +191,7 @@ async function runAction({
     coreModule.info(
       "Install wrapper to forward OpenTofu/Terraform output to future actions"
     );
-    source = getWrapperSourcePath(
-      pathModule,
-      require.main === module && process.argv[1] ? process.argv[1] : __filename
-    );
+    source = getWrapperSourcePath(pathModule, entryFilePath);
     target = [binaryPath, iacPlatform].join(pathModule.sep);
     await ioModule.cp(source, target);
   }
