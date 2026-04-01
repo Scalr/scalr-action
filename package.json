@@ -5,7 +5,7 @@
   "main": "index.js",
   "packageManager": "bun@1.3.4",
   "scripts": {
-    "build": "bunx @vercel/ncc build src/terraform.js -o dist/terraform -m && bunx @vercel/ncc build src/wrapper.js -o dist/wrapper -m",
+    "build": "./node_modules/.bin/ncc build src/terraform.js -o dist/terraform -m && ./node_modules/.bin/ncc build src/wrapper.js -o dist/wrapper -m",
     "test": "node --test"
   },
   "repository": {
