@@ -48,19 +48,6 @@ jobs:
           chmod +x dist/wrapper/index.js
           git update-index --chmod=+x dist/wrapper/index.js
 
-      - name: Normalize generated file newlines
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          for file_name in ("dist/terraform/index.js", "dist/wrapper/index.js"):
-              path = Path(file_name)
-              data = path.read_bytes()
-              if data and not data.endswith(b"\n"):
-                  path.write_bytes(data + b"\n")
-          PY
-
       - name: Verify generated files are committed
         shell: bash
         run: |
