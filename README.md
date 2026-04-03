@@ -1,6 +1,8 @@
 # scalr-action
 
-The `scalr-action` action is an action written in JavaScript that sets up the Scalr and OpenTofu/Terraform CLI. The action does the following:
+The Scalr GitHub Action is used to automate Terraform and OpenTofu runs within Scalr, a cost-effective, drop-in replacement for Terraform Cloud with feature parity and better GitOps support. This action allows you to trigger and manage Terraform plans and applies, streamline CI/CD pipelines, and integrate infrastructure automation directly into your GitHub workflows.
+
+The `scalr-action` is written in JavaScript that sets up the Scalr and OpenTofu/Terraform CLI. The action does the following:
 
 - Downloads (and caching) the latest version of [Scalr CLI](https://github.com/Scalr/scalr-cli) and adds it to the `PATH`.
 - Downloads (and caching) a specific (or autodetected) version of OpenTofu/Terraform CLI and adds it to the `PATH`.
