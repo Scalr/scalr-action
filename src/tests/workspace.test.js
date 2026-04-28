@@ -67,8 +67,64 @@ test("resolveWorkspaceIdByName returns the only matching workspace id", async ()
   assert.equal(workspaceId, "ws-123");
   assert.deepEqual(calls, [
     ["scalr", ["list-environments", "-filter-name=prod"]],
-    ["scalr", ["get-workspaces", "-filter-environment=env-123"]],
+    [
+      "scalr",
+      [
+        "get-workspaces",
+        "-filter-environment=env-123",
+        "-filter-name=network",
+      ],
+    ],
   ]);
+});
+
+test("resolveWorkspaceIdByName filters by name server-side to bound the response size", async () => {
+  const calls = [];
+
+  await resolveWorkspaceIdByName({
+    environmentName: "prod",
+    spawnCommand: async (command, args) => {
+      calls.push([command, args]);
+      if (args[0] === "list-environments") {
+        return JSON.stringify([{ id: "env-123", name: "prod" }]);
+      }
+
+      return JSON.stringify([{ id: "ws-123", name: "network" }]);
+    },
+    workspaceName: "network",
+  });
+
+  const getWorkspacesCall = calls.find(
+    ([, args]) => args[0] === "get-workspaces"
+  );
+  assert.ok(getWorkspacesCall, "expected a get-workspaces call");
+  assert.ok(
+    getWorkspacesCall[1].includes("-filter-name=network"),
+    "expected -filter-name=<workspaceName> to be passed to get-workspaces"
+  );
+});
+
+test("resolveWorkspaceIdByName ignores items with no name (regression: filterByName fall-through)", async () => {
+  // Regression test for CLOUD-4956. Previously filterByName returned items
+  // whose name was empty, so a no-name item could pollute the candidate set
+  // and cause "Multiple workspaces" or wrong-id resolution. The server-side
+  // filter should drop them, and the client-side filter must do the same.
+  const workspaceId = await resolveWorkspaceIdByName({
+    environmentName: "prod",
+    spawnCommand: async (command, args) => {
+      if (args[0] === "list-environments") {
+        return JSON.stringify([{ id: "env-123", name: "prod" }]);
+      }
+
+      return JSON.stringify([
+        { id: "ws-noisy", name: "" },
+        { id: "ws-123", name: "network" },
+      ]);
+    },
+    workspaceName: "network",
+  });
+
+  assert.equal(workspaceId, "ws-123");
 });
 
 test("resolveWorkspaceIdByName fails when no workspace matches", async () => {

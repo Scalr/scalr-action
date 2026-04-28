@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.1
+
+### Fixed
+- Fixed `scalr_workspace_name` / `scalr_environment_name` resolution failing in environments with a large number of workspaces. The action now passes `-filter-name=<workspaceName>` to `get-workspaces` so the response is bounded server-side, and raises the child-process output buffer with a clear error if the limit is ever exceeded.
+- Fixed `filterByName` falling through to include items with empty names, which could produce false "Multiple workspaces" errors or resolve the wrong workspace id.
+
 ## 1.7.0
 
 ### Added
