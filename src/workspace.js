@@ -37,7 +37,7 @@ function getEnvironmentName(item) {
 function filterByName(items, name, getItemName) {
   return items.filter((item) => {
     const itemName = getItemName(item);
-    if (!itemName) return true;
+    if (!itemName) return false;
     return itemName === name;
   });
 }
@@ -109,9 +109,14 @@ async function resolveWorkspaceIdByName({
     spawnCommand,
   });
 
+  // Filter by name server-side as well as by environment. Without
+  // `-filter-name` the CLI returns every workspace in the environment, which
+  // can exceed the child-process output buffer for large environments and
+  // truncate mid-stream (CLOUD-4956).
   const payload = await runScalrJsonCommand(spawnCommand, [
     "get-workspaces",
     `-filter-environment=${environmentId}`,
+    `-filter-name=${normalizedWorkspaceName}`,
   ]);
 
   const workspaces = getItems(payload);
