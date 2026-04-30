@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.8.0
+
+### Security
+
+- **Token masking** — the Scalr API token is now registered with `core.setSecret()` immediately on retrieval, ensuring it is redacted in all subsequent GitHub Actions log output.
+- **Credential file permissions** — `~/.scalr/scalr.conf` and the Terraform/OpenTofu RC file are now written with mode `0600` (owner-read-only) instead of the default umask permissions, preventing other processes on the same runner from reading them.
+- **Injection-safe credential construction** — `scalr.conf` is now written via `JSON.stringify` instead of template-literal interpolation, and the HCL credentials block escapes `"` and `\` characters in hostname and token values. Crafted inputs could previously produce malformed files or inject extra configuration keys.
+- **`execFile` instead of `exec` in wrapper** — `terraform output -json` is now invoked without a shell, eliminating the shell-injection surface in the binary wrapper.
+- **Credential cleanup on job completion** — a new `post:` step (`dist/cleanup/index.js`) deletes `~/.scalr/scalr.conf` and the Terraform/OpenTofu RC file after every job, including on failure. This prevents credentials from accumulating on self-hosted runners.
+
+  > **⚠️ Breaking change for self-hosted runners:** If your workflow relied on credential files persisting across jobs without re-running the action (e.g., reusing runner state between workflow runs), those files will no longer be present after the job that set them up. Re-run the action in each job that needs credentials.
+
+### Added
+
+- **PR plan comments** — set `pr_comment: true` on a `pull_request` or `pull_request_target` workflow to have plan output automatically posted as a PR comment. Comments are updated in-place on subsequent runs (idempotent). No extra token configuration required; `GITHUB_TOKEN` is used automatically.
+- **Tool caching** — the Scalr CLI and Terraform/OpenTofu binary are now cached in the runner tool cache (`@actions/tool-cache`) and reused on subsequent runs with the same version, skipping re-downloads. Particularly beneficial for self-hosted runners and matrix builds.
+- **Declared action outputs** — `stdout`, `stderr`, and `exitcode` are now formally declared in `action.yml`, enabling IDE autocomplete for `${{ steps.<id>.outputs.stdout }}` and correct documentation generation.
+- **Dependabot** — added `.github/dependabot.yml` to automate weekly dependency update PRs for both npm packages and GitHub Actions workflow pins.
+
+### Fixed
+
+- **Workspace name resolution fallback removed** — `resolveEnvironmentIdByName` and `resolveWorkspaceIdByName` previously fell back to the full unfiltered API result list when no exact name match was found. This could silently resolve to the wrong entity or produce a confusing "multiple found" error. Resolution is now strictly exact-match only.
+
+  > **⚠️ Edge-case breaking change:** Workflows that depended on the unintended fallback (i.e., the CLI's `-filter-name=` returned results but none matched the exact name) will now receive a clear "No environment/workspace named X found" error. Supply the correct exact name or use `scalr_workspace` with the workspace ID directly.
+
+- **`JSON.parse` crash in wrapper** — malformed output from `terraform output -json` (e.g. warnings mixed into stdout) previously threw an uncaught exception and left the step hanging. A parse failure now emits a `core.warning()` and exits cleanly.
+
 ## 1.7.1
 
 ### Fixed

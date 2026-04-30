@@ -88,6 +88,10 @@ function validateWorkspaceInputs({
   }
 }
 
+function hclEscape(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 function getWrapperSourcePath(pathModule = path, entryFilePath) {
   const resolvedEntryFilePath =
     entryFilePath || process.argv[1] || pathModule.resolve(process.cwd(), "src", "terraform.js");
@@ -117,6 +121,7 @@ async function runAction({
 } = {}) {
   const hostname = coreModule.getInput("scalr_hostname", { required: true });
   const token = coreModule.getInput("scalr_token", { required: true });
+  coreModule.setSecret(token);
   let workspace = coreModule.getInput("scalr_workspace");
   const workspaceName = coreModule.getInput("scalr_workspace_name");
   const environmentName = coreModule.getInput("scalr_environment_name");
@@ -130,6 +135,7 @@ async function runAction({
     coreModule.getInput("terraform_wrapper") === "true";
   const output =
     coreModule.getInput("binary_output") || coreModule.getInput("terraform_output");
+  const prComment = coreModule.getInput("pr_comment");
 
   validateRequestedVersion(version);
   validateWorkspaceInputs({ workspace, workspaceName, environmentName });
@@ -145,15 +151,27 @@ async function runAction({
     arch
   );
 
-  coreModule.info(
-    `Downloading compressed Scalr CLI binary from ${scalrCliUrl}`
-  );
-  const scalrCliArchive = await toolcacheModule.downloadTool(scalrCliUrl);
-  if (!scalrCliArchive) throw new Error("Failed to download Scalr CLI");
+  let scalrCliPath = toolcacheModule.find("scalr-cli", scalrCliVersion, arch);
+  if (scalrCliPath) {
+    coreModule.info(`Using cached Scalr CLI ${scalrCliVersion}`);
+  } else {
+    coreModule.info(
+      `Downloading compressed Scalr CLI binary from ${scalrCliUrl}`
+    );
+    const scalrCliArchive = await toolcacheModule.downloadTool(scalrCliUrl);
+    if (!scalrCliArchive) throw new Error("Failed to download Scalr CLI");
 
-  coreModule.info("Decompressing Scalr CLI binary");
-  const scalrCliPath = await toolcacheModule.extractZip(scalrCliArchive);
-  if (!scalrCliPath) throw new Error("Failed to decompress Scalr CLI");
+    coreModule.info("Decompressing Scalr CLI binary");
+    scalrCliPath = await toolcacheModule.extractZip(scalrCliArchive);
+    if (!scalrCliPath) throw new Error("Failed to decompress Scalr CLI");
+
+    scalrCliPath = await toolcacheModule.cacheDir(
+      scalrCliPath,
+      "scalr-cli",
+      scalrCliVersion,
+      arch
+    );
+  }
 
   coreModule.info("Add Scalr CLI to PATH");
   coreModule.addPath(scalrCliPath);
@@ -164,7 +182,8 @@ async function runAction({
   await ioModule.mkdirP(pathModule.dirname(scalrConfigPath));
   await fsModule.writeFile(
     scalrConfigPath,
-    `{ "hostname": "${hostname}", "token": "${token}" }`
+    JSON.stringify({ hostname, token }),
+    { mode: 0o600 }
   );
 
   if (workspaceName && environmentName) {
@@ -219,33 +238,47 @@ async function runAction({
     downloadUrl = buildOpenTofuDownloadUrlImpl(version, platform, arch);
   }
 
-  coreModule.info(
-    `Downloading compressed tofu/terraform binary from ${downloadUrl}`
-  );
-  const binaryArchive = await toolcacheModule.downloadTool(downloadUrl);
-  if (!binaryArchive) throw new Error("Failed to download tofu/terraform");
+  const binaryToolName = wrapper ? `${iacPlatform}-wrapped` : iacPlatform;
+  let binaryPath = toolcacheModule.find(binaryToolName, version, arch);
 
-  coreModule.info("Decompressing OpenTofu/Terraform binary");
-  const binaryPath = await toolcacheModule.extractZip(binaryArchive);
-  if (!binaryPath) throw new Error("Failed to decompress tofu/terraform");
+  if (binaryPath) {
+    coreModule.info(`Using cached ${iacPlatform} ${version}`);
+  } else {
+    coreModule.info(
+      `Downloading compressed tofu/terraform binary from ${downloadUrl}`
+    );
+    const binaryArchive = await toolcacheModule.downloadTool(downloadUrl);
+    if (!binaryArchive) throw new Error("Failed to download tofu/terraform");
+
+    coreModule.info("Decompressing OpenTofu/Terraform binary");
+    binaryPath = await toolcacheModule.extractZip(binaryArchive);
+    if (!binaryPath) throw new Error("Failed to decompress tofu/terraform");
+
+    if (wrapper) {
+      coreModule.info("Rename tofu/terraform binary to make way for the wrapper");
+      const exeSuffix = osModule.platform().startsWith("win") ? ".exe" : "";
+      let source = [binaryPath, `${iacPlatform}${exeSuffix}`].join(pathModule.sep);
+      let target = [binaryPath, `terraform-bin${exeSuffix}`].join(pathModule.sep);
+      await ioModule.mv(source, target);
+
+      coreModule.info(
+        "Install wrapper to forward OpenTofu/Terraform output to future actions"
+      );
+      source = getWrapperSourcePath(pathModule, entryFilePath);
+      target = [binaryPath, iacPlatform].join(pathModule.sep);
+      await ioModule.cp(source, target);
+    }
+
+    binaryPath = await toolcacheModule.cacheDir(
+      binaryPath,
+      binaryToolName,
+      version,
+      arch
+    );
+  }
 
   coreModule.info("Add tofu/terraform to PATH");
   coreModule.addPath(binaryPath);
-
-  if (wrapper) {
-    coreModule.info("Rename tofu/terraform binary to make way for the wrapper");
-    const exeSuffix = osModule.platform().startsWith("win") ? ".exe" : "";
-    let source = [binaryPath, `${iacPlatform}${exeSuffix}`].join(pathModule.sep);
-    let target = [binaryPath, `terraform-bin${exeSuffix}`].join(pathModule.sep);
-    await ioModule.mv(source, target);
-
-    coreModule.info(
-      "Install wrapper to forward OpenTofu/Terraform output to future actions"
-    );
-    source = getWrapperSourcePath(pathModule, entryFilePath);
-    target = [binaryPath, iacPlatform].join(pathModule.sep);
-    await ioModule.cp(source, target);
-  }
 
   const terraformRcPath = getTerraformRcPath({
     env,
@@ -258,11 +291,13 @@ async function runAction({
   await ioModule.mkdirP(pathModule.dirname(terraformRcPath));
   await fsModule.writeFile(
     terraformRcPath,
-    `credentials "${hostname}" {\n  token = "${token}"\n}`
+    `credentials "${hclEscape(hostname)}" {\n  token = "${hclEscape(token)}"\n}`,
+    { mode: 0o600 }
   );
 
   coreModule.exportVariable("TF_IN_AUTOMATION", "TRUE");
   coreModule.exportVariable("TERRAFORM_OUTPUT", output);
+  coreModule.exportVariable("PR_COMMENT", prComment);
 
   return {
     arch,

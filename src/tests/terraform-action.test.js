@@ -17,6 +17,7 @@ function createCore(inputs = {}) {
   const exports = [];
   const outputs = [];
   const failures = [];
+  const secrets = [];
 
   return {
     addPath: () => {},
@@ -25,18 +26,25 @@ function createCore(inputs = {}) {
     info: (message) => infoMessages.push(message),
     setFailed: (message) => failures.push(message),
     setOutput: (name, value) => outputs.push({ name, value }),
+    setSecret: (value) => secrets.push(value),
     exports,
     failures,
     infoMessages,
     outputs,
+    secrets,
   };
 }
 
 function createToolcache() {
+  const cached = {};
   const downloads = [];
   const extracts = [];
 
   return {
+    cacheDir: async (dir, toolName, version, arch) => {
+      cached[`${toolName}@${version}@${arch}`] = dir;
+      return dir;
+    },
     downloadTool: async (url) => {
       downloads.push(url);
       return `archive:${downloads.length}`;
@@ -45,6 +53,9 @@ function createToolcache() {
       extracts.push(archive);
       return `/tool/${extracts.length}`;
     },
+    find: (toolName, version, arch) =>
+      cached[`${toolName}@${version}@${arch}`] || "",
+    cached,
     downloads,
     extracts,
   };
@@ -53,8 +64,8 @@ function createToolcache() {
 function createFs() {
   const writes = [];
   return {
-    writeFile: async (file, contents) => {
-      writes.push({ file, contents });
+    writeFile: async (file, contents, options) => {
+      writes.push({ file, contents, options });
     },
     writes,
   };
@@ -164,6 +175,7 @@ test("runAction skips autodetect when explicit binary_version is provided", asyn
   assert.deepEqual(coreModule.exports, [
     { name: "TF_IN_AUTOMATION", value: "TRUE" },
     { name: "TERRAFORM_OUTPUT", value: "false" },
+    { name: "PR_COMMENT", value: "" },
   ]);
   assert.equal(fsModule.writes.length, 2);
 });
@@ -356,8 +368,10 @@ test("main reports missing workspace when autodetect is requested", async () => 
       platform: () => "linux",
     },
     toolcacheModule: {
+      cacheDir: async (dir) => dir,
       downloadTool: async () => "archive",
       extractZip: async () => "/tool/path",
+      find: () => "",
     },
   });
 
@@ -456,6 +470,136 @@ test("getHomeDir falls back across common runner env vars", () => {
     }),
     "/fallback"
   );
+});
+
+test("runAction masks the Scalr token as a secret", async () => {
+  const coreModule = createCore({
+    binary_output: "false",
+    binary_version: "1.4.7",
+    iac_platform: "terraform",
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "super-secret-token",
+  });
+
+  await runAction({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule: createFs(),
+    ioModule: { cp: async () => {}, mkdirP: async () => {}, mv: async () => {} },
+    osModule: { arch: () => "x64", platform: () => "linux" },
+    toolcacheModule: createToolcache(),
+  });
+
+  assert.deepEqual(coreModule.secrets, ["super-secret-token"]);
+});
+
+test("runAction writes credential files with restricted permissions", async () => {
+  const coreModule = createCore({
+    binary_output: "false",
+    binary_version: "1.4.7",
+    iac_platform: "terraform",
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "secret",
+  });
+  const fsModule = createFs();
+
+  await runAction({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule,
+    ioModule: { cp: async () => {}, mkdirP: async () => {}, mv: async () => {} },
+    osModule: { arch: () => "x64", platform: () => "linux" },
+    toolcacheModule: createToolcache(),
+  });
+
+  for (const write of fsModule.writes) {
+    assert.equal(
+      write.options && write.options.mode,
+      0o600,
+      `Expected 0o600 mode on ${write.file}`
+    );
+  }
+});
+
+test("runAction writes credential files with safe JSON/HCL content", async () => {
+  const coreModule = createCore({
+    binary_output: "false",
+    binary_version: "1.4.7",
+    iac_platform: "terraform",
+    // Adversarial inputs with quotes and backslashes
+    scalr_hostname: 'host.scalr.io" , "injected": "x',
+    scalr_token: 'tok"en\\value',
+  });
+  const fsModule = createFs();
+
+  await runAction({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule,
+    ioModule: { cp: async () => {}, mkdirP: async () => {}, mv: async () => {} },
+    osModule: { arch: () => "x64", platform: () => "linux" },
+    toolcacheModule: createToolcache(),
+  });
+
+  // scalr.conf must be valid parseable JSON
+  const [scalrConf] = fsModule.writes;
+  assert.doesNotThrow(
+    () => JSON.parse(scalrConf.contents),
+    "scalr.conf must be valid JSON even with special characters in inputs"
+  );
+
+  // terraformrc must not allow injection via unescaped quotes
+  const [, terraformRc] = fsModule.writes;
+  assert.doesNotMatch(
+    terraformRc.contents,
+    /"injected"/,
+    "terraformrc must escape quotes in hostname"
+  );
+});
+
+test("runAction skips downloads when binaries are cached", async () => {
+  const coreModule = createCore({
+    binary_output: "false",
+    binary_version: "1.4.7",
+    iac_platform: "terraform",
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "secret",
+  });
+  const toolcacheModule = createToolcache();
+  // Pre-populate cache as if a previous run already stored these
+  toolcacheModule.cached["scalr-cli@0.17.7@amd64"] = "/cache/scalr-cli";
+  toolcacheModule.cached["terraform@1.4.7@amd64"] = "/cache/terraform";
+
+  await runAction({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule: createFs(),
+    ioModule: {
+      cp: async () => { throw new Error("cp must not be called on cache hit"); },
+      mkdirP: async () => {},
+      mv: async () => { throw new Error("mv must not be called on cache hit"); },
+    },
+    osModule: { arch: () => "x64", platform: () => "linux" },
+    toolcacheModule,
+  });
+
+  assert.deepEqual(toolcacheModule.downloads, []);
 });
 
 test("getWrapperSourcePath resolves source and bundled wrapper locations", () => {
