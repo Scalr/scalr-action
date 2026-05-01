@@ -19,9 +19,9 @@
   },
   "homepage": "https://github.com/Scalr/scalr-action#readme",
   "dependencies": {
-    "@actions/core": "^2.0.3",
-    "@actions/io": "^2.0.0",
-    "@actions/tool-cache": "^3.0.1"
+    "@actions/core": "^3.0.1",
+    "@actions/io": "^3.0.2",
+    "@actions/tool-cache": "^4.0.0"
   },
   "devDependencies": {
     "@vercel/ncc": "^0.38.4"
