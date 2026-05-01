@@ -36,17 +36,28 @@ inputs:
     description: "Deprecated. Use `binary_version` instead."
     required: false
   terraform_wrapper:
-    description: "Deprecated. User `binary_wrapper` instead."
+    description: "Deprecated. Use `binary_wrapper` instead."
     default: "true"
     required: false
   terraform_output:
     description: "Deprecated. Use `binary_output` instead."
     default: "false"
     required: false
-
+  pr_comment:
+    description: "Post terraform/tofu plan output as a PR comment. GITHUB_TOKEN is injected automatically. Only fires on pull_request and pull_request_target events."
+    default: "false"
+    required: false
+outputs:
+  stdout:
+    description: "STDOUT from the last tofu/terraform command (requires binary_wrapper: true)."
+  stderr:
+    description: "STDERR from the last tofu/terraform command (requires binary_wrapper: true)."
+  exitcode:
+    description: "Exit code from the last tofu/terraform command (requires binary_wrapper: true)."
 runs:
   using: "node24"
   main: "dist/terraform/index.js"
+  post: "dist/cleanup/index.js"
 branding:
   icon: "terminal"
   color: "red"

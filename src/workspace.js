@@ -50,13 +50,11 @@ async function resolveEnvironmentIdByName({ environmentName, spawnCommand }) {
   ]);
 
   const environments = getItems(payload);
-  const matchingEnvironments = filterByName(
+  const candidates = filterByName(
     environments,
     normalizedEnvironmentName,
     getEnvironmentName
   );
-  const candidates =
-    matchingEnvironments.length > 0 ? matchingEnvironments : environments;
 
   if (candidates.length === 0) {
     throw new Error(`No environment named '${normalizedEnvironmentName}' found`);
@@ -120,12 +118,11 @@ async function resolveWorkspaceIdByName({
   ]);
 
   const workspaces = getItems(payload);
-  const matchingWorkspaces = filterByName(
+  const candidates = filterByName(
     workspaces,
     normalizedWorkspaceName,
     getWorkspaceName
   );
-  const candidates = matchingWorkspaces.length > 0 ? matchingWorkspaces : workspaces;
 
   if (candidates.length === 0) {
     throw new Error(
