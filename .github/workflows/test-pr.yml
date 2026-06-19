@@ -60,7 +60,7 @@ jobs:
             echo "SCALR_WORKSPACE=${{ vars.SCALR_WORKSPACE }}" >> "$GITHUB_ENV"
           fi
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.WORKFLOW_REF }}
 
