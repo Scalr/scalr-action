@@ -59,6 +59,37 @@ steps:
   - run: echo ${{ steps.apply.outputs.server_ip }}
 ```
 
+## Workload identity federation (OIDC)
+
+Instead of storing a long-lived `scalr_token` secret, the action can authenticate with [GitHub OIDC workload identity federation](https://docs.scalr.io/docs/identity-and-access-management#update-third-party). The action requests a short-lived GitHub Actions OIDC ID token and exchanges it for a temporary Scalr token, so you no longer need to wrap the *Generate GitHub Actions OIDC ID token* and *Exchange OIDC ID token for Scalr token* steps yourself — this works the same way `azure/login` and `aws-actions/configure-aws-credentials` do for their platforms.
+
+Prerequisites (one-time setup in Scalr, see the docs linked above):
+
+1. Register a GitHub Actions workload identity provider (issuer `https://token.actions.githubusercontent.com`, allowed audience `https://github.com/<owner>`).
+2. Create a service account and attach an assume policy that trusts the provider (for example, restricted to your `owner/repository`).
+
+Then set `scalr_service_account_email` instead of `scalr_token`, and grant the job `id-token: write` permission:
+
+```yaml
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Scalr/scalr-action@v1
+        with:
+          scalr_hostname: "<your-account>.scalr.io"
+          scalr_service_account_email: "my-sa@env-xxxxxxxx.scalr.io"
+          scalr_workspace: ws-xxxxxxxx
+      - run: terraform init
+      - run: terraform plan
+```
+
+The exchanged token is registered with `core.setSecret` so it is masked in logs, and the `post:` cleanup step removes the credential files as usual. If both `scalr_token` and `scalr_service_account_email` are set, the static `scalr_token` takes precedence. If GitHub does not issue the default audience your provider expects, set `scalr_oidc_audience` to override it.
+
 ## OpenTofu/Terraform configuration
 
 Make sure your OpenTofu/Terraform configuration includes the minimal parameters for Scalr.
@@ -83,7 +114,11 @@ The action supports the following inputs:
 
 - `scalr_hostname` - The hostname of your Scalr account on scalr.io. Example: `example.scalr.io`.
 
-- `scalr_token` - The API token used to authenticate with the credentials block of the Terraform CLI config file.
+- `scalr_token` - The API token used to authenticate with the credentials block of the Terraform CLI config file. Optional when using [workload identity federation](#workload-identity-federation-oidc); leave it empty and set `scalr_service_account_email` instead.
+
+- `scalr_service_account_email` - The email of the Scalr service account to assume via GitHub OIDC [workload identity federation](#workload-identity-federation-oidc). Used only when `scalr_token` is empty. Requires the workflow to grant `permissions: id-token: write`.
+
+- `scalr_oidc_audience` - Optional audience for the GitHub OIDC ID token requested during workload identity federation. Defaults to the GitHub-provided audience (the repository owner URL, e.g. `https://github.com/<owner>`), which must match the provider's allowed-audiences configured in Scalr.
 
 - `scalr_workspace` - The Scalr workspace ID you plan on working in. This is required if you want to autodetect the OpenTofu/Terraform version.
 

@@ -14,6 +14,7 @@
 
 ### Added
 
+- **Workload identity federation (OIDC)** — the action can now authenticate without a static `scalr_token`. Leave `scalr_token` empty and set `scalr_service_account_email` to have the action request a GitHub Actions OIDC ID token and exchange it for a short-lived Scalr token (via `POST /api/iacp/v3/service-accounts/assume`). This abstracts the manual *Generate OIDC token* / *Exchange OIDC token* steps the same way `azure/login` and `aws-actions/configure-aws-credentials` do. Requires the job to grant `permissions: id-token: write`. An optional `scalr_oidc_audience` input overrides the ID token audience. The exchanged token is masked via `core.setSecret`.
 - **PR plan comments** — set `pr_comment: true` on a `pull_request` or `pull_request_target` workflow to have plan output automatically posted as a PR comment. Comments are updated in-place on subsequent runs (idempotent). No extra token configuration required; `GITHUB_TOKEN` is used automatically.
 - **Tool caching** — the Scalr CLI and Terraform/OpenTofu binary are now cached in the runner tool cache (`@actions/tool-cache`) and reused on subsequent runs with the same version, skipping re-downloads. Particularly beneficial for self-hosted runners and matrix builds.
 - **Declared action outputs** — `stdout`, `stderr`, and `exitcode` are now formally declared in `action.yml`, enabling IDE autocomplete for `${{ steps.<id>.outputs.stdout }}` and correct documentation generation.

@@ -497,6 +497,91 @@ test("runAction masks the Scalr token as a secret", async () => {
   assert.deepEqual(coreModule.secrets, ["super-secret-token"]);
 });
 
+test("runAction obtains a Scalr token via OIDC when scalr_token is empty", async () => {
+  const coreModule = createCore({
+    binary_output: "false",
+    binary_version: "1.4.7",
+    iac_platform: "terraform",
+    scalr_hostname: "example.scalr.io",
+    scalr_service_account_email: "sa@example.com",
+    scalr_oidc_audience: "https://github.com/acme",
+  });
+  const fsModule = createFs();
+  let oidcArgs;
+
+  await runAction({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule,
+    ioModule: { cp: async () => {}, mkdirP: async () => {}, mv: async () => {} },
+    osModule: { arch: () => "x64", platform: () => "linux" },
+    resolveScalrTokenFromOidcImpl: async (args) => {
+      oidcArgs = args;
+      return "oidc-scalr-token";
+    },
+    toolcacheModule: createToolcache(),
+  });
+
+  assert.equal(oidcArgs.hostname, "example.scalr.io");
+  assert.equal(oidcArgs.serviceAccountEmail, "sa@example.com");
+  assert.equal(oidcArgs.audience, "https://github.com/acme");
+  // The exchanged token is masked and written to the credential files.
+  assert.deepEqual(coreModule.secrets, ["oidc-scalr-token"]);
+  const scalrConf = JSON.parse(fsModule.writes[0].contents);
+  assert.equal(scalrConf.token, "oidc-scalr-token");
+});
+
+test("main fails when neither scalr_token nor service account email are provided", async () => {
+  const coreModule = createCore({
+    binary_version: "1.4.7",
+    scalr_hostname: "example.scalr.io",
+  });
+
+  await main({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => {
+      throw new Error("fetch should not run");
+    },
+  });
+
+  assert.deepEqual(coreModule.failures, [
+    "Provide scalr_token, or scalr_service_account_email to authenticate via GitHub OIDC workload identity federation",
+  ]);
+});
+
+test("runAction prefers an explicit scalr_token over OIDC", async () => {
+  const coreModule = createCore({
+    binary_version: "1.4.7",
+    iac_platform: "terraform",
+    scalr_hostname: "example.scalr.io",
+    scalr_token: "static-token",
+    scalr_service_account_email: "sa@example.com",
+  });
+
+  await runAction({
+    coreModule,
+    env: { HOME: "/tmp/home" },
+    fetchImpl: async () => ({
+      ok: true,
+      url: "https://github.com/Scalr/scalr-cli/releases/tag/v0.17.7",
+    }),
+    fsModule: createFs(),
+    ioModule: { cp: async () => {}, mkdirP: async () => {}, mv: async () => {} },
+    osModule: { arch: () => "x64", platform: () => "linux" },
+    resolveScalrTokenFromOidcImpl: async () => {
+      throw new Error("OIDC should not run when scalr_token is set");
+    },
+    toolcacheModule: createToolcache(),
+  });
+
+  assert.deepEqual(coreModule.secrets, ["static-token"]);
+});
+
 test("runAction writes credential files with restricted permissions", async () => {
   const coreModule = createCore({
     binary_output: "false",
