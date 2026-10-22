@@ -6,8 +6,14 @@ inputs:
     description: "The hostname of a Scalr install. Example: username.scalr.io."
     required: true
   scalr_token:
-    description: "The API token to use."
-    required: true
+    description: "The API token to use. Leave empty to authenticate via GitHub OIDC workload identity federation using scalr_service_account_email."
+    required: false
+  scalr_service_account_email:
+    description: "The email of the Scalr service account to assume via GitHub OIDC workload identity federation. Used only when scalr_token is empty. Requires the workflow to grant `permissions: id-token: write`."
+    required: false
+  scalr_oidc_audience:
+    description: "Optional audience for the GitHub OIDC ID token requested during workload identity federation. Defaults to the GitHub-provided audience (the repository owner URL), which must match the provider's allowed-audiences in Scalr."
+    required: false
   scalr_workspace:
     description: "The Scalr workspace ID you plan on working in. This is required if you want to autodetect the OpenTofu/Terraform version unless you provide scalr_workspace_name and scalr_environment_name instead."
     required: false

@@ -17,6 +17,7 @@ const {
   normalizeIacPlatform,
 } = require("./terraform-version");
 const { resolveWorkspaceIdByName } = require("./workspace");
+const { resolveScalrTokenFromOidc } = require("./oidc");
 
 function getPlatform(osModule = os) {
   return { win32: "windows" }[osModule.platform()] || osModule.platform();
@@ -113,6 +114,7 @@ async function runAction({
   fetchImpl = fetch,
   detectWorkspaceVersionImpl = detectWorkspaceVersion,
   resolveWorkspaceIdByNameImpl = resolveWorkspaceIdByName,
+  resolveScalrTokenFromOidcImpl = resolveScalrTokenFromOidc,
   runCommandImpl = runCommand,
   buildOpenTofuDownloadUrlImpl = buildOpenTofuDownloadUrl,
   buildScalrCliDownloadUrlImpl = buildScalrCliDownloadUrl,
@@ -120,7 +122,27 @@ async function runAction({
   entryFilePath,
 } = {}) {
   const hostname = coreModule.getInput("scalr_hostname", { required: true });
-  const token = coreModule.getInput("scalr_token", { required: true });
+  const providedToken = coreModule.getInput("scalr_token");
+  const serviceAccountEmail = coreModule.getInput(
+    "scalr_service_account_email"
+  );
+  const oidcAudience = coreModule.getInput("scalr_oidc_audience");
+
+  let token = providedToken;
+  if (!token) {
+    if (!serviceAccountEmail) {
+      throw new Error(
+        "Provide scalr_token, or scalr_service_account_email to authenticate via GitHub OIDC workload identity federation"
+      );
+    }
+    token = await resolveScalrTokenFromOidcImpl({
+      audience: oidcAudience,
+      coreModule,
+      fetchImpl,
+      hostname,
+      serviceAccountEmail,
+    });
+  }
   coreModule.setSecret(token);
   let workspace = coreModule.getInput("scalr_workspace");
   const workspaceName = coreModule.getInput("scalr_workspace_name");
